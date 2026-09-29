@@ -1,0 +1,121 @@
+@startuml
+allowmixing
+left to right direction
+skinparam componentStyle rectangle
+hide empty members
+
+component "Web Browser" as browser
+component "Mobile App" as mobile
+component "Admin Console" as admin
+
+package "Edge Network" as edge {
+  component "CDN" as cdn
+  component "Web Application Firewall" as waf
+  component "Load Balancer" as lb
+  cdn --> waf : filtered request
+  waf --> lb : HTTPS
+}
+
+component "API Platform" as platform {
+  portin public_api
+  portin admin_api
+  portout event_stream
+  component "API Gateway" as gateway
+  component "Authentication Service" as auth
+  component "Rate Limiter" as limiter
+  component "Request Router" as router
+  public_api --> gateway
+  admin_api --> gateway
+  gateway --> auth : verify token
+  gateway --> limiter : check quota
+  gateway --> router : authenticated request
+  router --> event_stream : audit event
+}
+
+package "Application Services" as services {
+  component "User Service" as users
+  component "Order Service" as orders
+  component "Inventory Service" as inventory
+  component "Payment Service" as payment
+  component "Notification Service" as notification
+  component "Search Service" as search
+  class "User Record" as user_record {
+    id : UUID
+    email : STRING
+    status : STRING
+    created_at : TIMESTAMP
+  }
+  class "Order Record" as order_record {
+    id : UUID
+    user_id : UUID
+    total : DECIMAL
+    state : STRING
+    created_at : TIMESTAMP
+  }
+  router --> users : users
+  router --> orders : orders
+  router --> inventory : inventory
+  router --> search : search
+  users --> user_record::id : read and update
+  orders --> order_record::id : persist
+  orders --> inventory : reserve stock
+  orders --> payment : authorize
+  orders -[dashed]-> notification : order status
+  payment -[dashed]-> notification : payment result
+}
+
+package "Data Platform" as data {
+  component "Primary Database" as primary_db
+  component "Read Replica" as replica
+  component "Redis Cache" as cache
+  component "Search Index" as search_index
+  component "Object Storage" as object_storage
+  primary_db --> replica : replication
+  primary_db -[dashed]-> object_storage : backup
+  cache -[hidden]-> search_index
+}
+
+package "Event Platform" as events {
+  component "Message Broker" as broker
+  component "Event Processor" as processor
+  component "Dead Letter Queue" as dlq
+  component "Analytics Sink" as analytics
+  broker --> processor : consume
+  processor --> analytics : transformed events
+  processor -[dashed]-> dlq : failed event
+  dlq --> processor : retry
+}
+
+package "Operations" as operations {
+  component "Metrics Collector" as metrics
+  component "Log Aggregator" as logs
+  component "Tracing Backend" as tracing
+  component "Alert Manager" as alerts
+  component "Operations Dashboard" as dashboard
+  metrics --> alerts : threshold breach
+  metrics --> dashboard
+  logs --> dashboard
+  tracing --> dashboard
+  alerts --> notification : send alert
+}
+
+browser --> cdn : web request
+mobile --> lb : API request
+admin --> admin_api : administration
+lb --> public_api : forward request
+event_stream --> broker
+users --> primary_db : write user
+users --> cache : cache user
+orders --> primary_db : write order
+orders --> cache : cache order
+inventory --> primary_db : stock transaction
+payment --> primary_db : payment record
+search --> search_index : query
+processor --> search_index : update index
+gateway -[dotted]-> metrics : request metrics
+auth -[dotted]-> logs : authentication log
+orders -[dotted]-> tracing : trace span
+payment -[dotted]-> tracing : trace span
+notification --> object_storage : message archive
+primary_db <--> replica : health check
+@enduml

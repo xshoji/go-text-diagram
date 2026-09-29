@@ -1,0 +1,11 @@
+@startuml
+package System {
+  component web
+  package Backend {
+    component api
+    component db
+    api --> db
+  }
+  web --> api
+}
+@enduml

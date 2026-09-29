@@ -1,0 +1,6 @@
+@startuml
+A --> B : left
+A --> C : right
+B --> D
+C --> D
+@enduml

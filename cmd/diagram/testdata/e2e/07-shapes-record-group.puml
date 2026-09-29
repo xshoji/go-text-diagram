@@ -1,0 +1,16 @@
+@startuml
+allowmixing
+class Record {
+  Name
+  Type
+  ..
+  id
+  int
+}
+package Service {
+  component API
+  circle junction
+  API --> junction
+}
+Record --> API
+@enduml

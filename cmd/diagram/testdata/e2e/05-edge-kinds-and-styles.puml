@@ -1,0 +1,7 @@
+@startuml
+left to right direction
+A .. B
+B <--> C
+C -[bold]-> D
+D -[dashed]-> E
+@enduml

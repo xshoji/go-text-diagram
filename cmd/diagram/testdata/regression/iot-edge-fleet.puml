@@ -1,0 +1,74 @@
+@startuml
+left to right direction
+
+node "Factory Site" as factory {
+  component "Temperature Sensors" as temperature
+  component "Vibration Sensors" as vibration
+  component "PLC Controllers" as plc
+  component "Edge Gateway" as edge_gateway
+  component "Local Rules Engine" as local_rules
+  component "Local Buffer" as local_buffer
+  temperature --> edge_gateway : MQTT
+  vibration --> edge_gateway : MQTT
+  plc <--> edge_gateway : OPC-UA
+  edge_gateway --> local_rules
+  local_rules --> plc : control command
+  edge_gateway --> local_buffer : offline queue
+}
+
+cloud "IoT Cloud" as cloud_platform {
+  component "Device Registry" as registry
+  component "Certificate Authority" as ca
+  component "MQTT Broker" as broker
+  component "Device Shadow" as shadow
+  component "Command Service" as command
+  component "OTA Update Service" as ota
+  component "Fleet Manager" as fleet
+  broker --> shadow : state update
+  fleet --> command
+  fleet --> ota
+  registry --> ca : issue certificate
+}
+
+package "Telemetry Pipeline" as telemetry_pipeline {
+  component "Stream Router" as router
+  component "Hot Path Processor" as hot
+  component "Cold Path Writer" as cold
+  component "Anomaly Detector" as anomaly
+  component "Alert Service" as alerts
+  broker --> router
+  router --> hot
+  router --> cold
+  hot --> anomaly
+  anomaly --> alerts
+}
+
+database "IoT Data" as iot_data {
+  component "Time Series DB" as timeseries
+  component "Data Lake" as lake
+  component "Asset Metadata DB" as asset_db
+  component "Firmware Repository" as firmware
+  hot --> timeseries
+  cold --> lake
+  registry --> asset_db
+  ota --> firmware
+}
+
+package "Operations" as operations {
+  component "Operations Console" as console
+  component "Maintenance Scheduler" as maintenance
+  component "Digital Twin Service" as twin
+  component "Pager Integration" as pager
+  console --> fleet
+  console --> twin
+  maintenance --> command
+  alerts --> pager
+  shadow --> twin
+}
+
+edge_gateway --> registry : provisioning
+edge_gateway --> broker : mTLS telemetry
+command --> edge_gateway : device command
+ota --> edge_gateway : signed firmware
+local_buffer -[dashed]-> broker : reconnect flush
+@enduml

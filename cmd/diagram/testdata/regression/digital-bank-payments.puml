@@ -1,0 +1,72 @@
+@startuml
+left to right direction
+
+component "Mobile Banking App" as app
+component "Merchant" as merchant
+component "Card Network" as card_network
+component "Open Banking Provider" as open_banking
+
+package "Security Zone" as security {
+  component "API Gateway" as gateway
+  component "OAuth Server" as oauth
+  component "Device Trust" as device
+  component "Fraud Engine" as fraud
+  component "HSM" as hsm
+  gateway --> oauth : authenticate
+  oauth --> device : verify device
+  fraud --> hsm : sign decision
+}
+
+package "Banking Core" as core {
+  component "Customer Service" as customer
+  component "Account Service" as account
+  component "Ledger Service" as ledger
+  component "Payment Orchestrator" as payment
+  component "Transfer Service" as transfer
+  component "Limit Service" as limits
+  component "FX Service" as fx
+  component "Statement Service" as statement
+  gateway --> customer
+  gateway --> account
+  gateway --> payment
+  gateway --> transfer
+  payment --> limits
+  payment --> fraud
+  payment --> ledger : debit and credit
+  transfer --> fx : exchange rate
+  transfer --> ledger
+  statement --> ledger : read entries
+}
+
+database "Regulated Data" as data {
+  component "Customer Vault" as customer_db
+  component "Account DB" as account_db
+  component "Immutable Ledger" as ledger_db
+  component "Audit Archive" as audit
+  component "Token Vault" as token_vault
+}
+
+package "Async Processing" as async {
+  component "Payment Queue" as payment_queue
+  component "Settlement Worker" as settlement
+  component "Reconciliation Worker" as reconciliation
+  component "Compliance Screening" as compliance
+  component "Notification Worker" as notification
+  payment_queue --> settlement
+  settlement --> reconciliation
+  settlement --> compliance
+  reconciliation -[dashed]-> notification
+}
+
+app --> gateway : TLS
+merchant --> gateway : payment request
+open_banking --> gateway : account information
+payment --> payment_queue
+settlement --> card_network : authorization
+customer --> customer_db
+account --> account_db
+ledger --> ledger_db
+oauth --> token_vault
+gateway -[dotted]-> audit : access log
+ledger -[dotted]-> audit : journal copy
+@enduml

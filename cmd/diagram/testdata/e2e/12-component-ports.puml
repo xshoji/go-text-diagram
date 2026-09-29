@@ -1,0 +1,11 @@
+@startuml
+component Backend {
+  portin request
+  portout result
+  component Worker as worker
+  request --> worker
+  worker --> result
+}
+[Client] --> request
+result --> [Database]
+@enduml

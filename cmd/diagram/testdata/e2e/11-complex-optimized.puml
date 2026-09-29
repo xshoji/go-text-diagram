@@ -1,0 +1,23 @@
+@startuml
+allowmixing
+top to bottom direction
+component Client as client
+package Backend {
+  component Gateway as gateway
+  class Users as users {
+    id : ID
+    name : Name
+    role : Role
+  }
+  component orders
+  component cache
+  component database
+  gateway ---> users::id : lookup
+  gateway --> orders : create
+  users::name -[dashed]-> cache
+  orders --> database
+  cache --> database
+  database --> gateway : retry
+}
+client --> gateway : request
+@enduml

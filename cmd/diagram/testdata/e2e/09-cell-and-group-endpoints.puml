@@ -1,0 +1,13 @@
+@startuml
+allowmixing
+left to right direction
+class record {
+  id : 識別子
+  name : Name
+}
+package Services {
+  component target
+}
+record::id --> Services
+Services --> record::name
+@enduml

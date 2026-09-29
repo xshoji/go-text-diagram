@@ -1,0 +1,6 @@
+@startuml
+component Alpha
+component Beta
+component Gamma
+component Delta
+@enduml

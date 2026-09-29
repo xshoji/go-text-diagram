@@ -1,0 +1,6 @@
+@startuml
+left to right direction
+component "利用者\nClient" as client
+client --> API : "要求\n200 ✅"
+API --> Database
+@enduml
