@@ -1,0 +1,12 @@
+@startuml
+Root --> A
+Root --> B
+Root --> C
+Root --> D
+Root --> E
+A --> End
+B --> End
+C --> End
+D --> End
+E --> End
+@enduml

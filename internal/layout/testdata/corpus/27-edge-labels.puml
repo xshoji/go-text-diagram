@@ -1,0 +1,6 @@
+@startuml
+left to right direction
+Client --> API : request
+API --> Database : "write\nthrough"
+API --> Cache : hit
+@enduml

@@ -1,0 +1,8 @@
+@startuml
+component A
+component B
+component C
+component D
+A --> D
+B --> C
+@enduml

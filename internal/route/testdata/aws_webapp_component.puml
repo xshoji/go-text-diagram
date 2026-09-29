@@ -1,0 +1,59 @@
+@startuml
+
+component "エンドユーザー" as User
+
+package "エッジ / DNS" {
+  component "Route 53\n(DNS)" as dns
+  component "CloudFront\n(CDN)" as cdn
+  component "ACM\n(TLS証明書)" as acm
+}
+
+package "VPC" {
+  package "パブリックサブネット" {
+    component "ALB\n(ロードバランサー)" as alb
+  }
+
+  package "プライベートサブネット（アプリ層）" {
+    component "ECS Fargate\n(アプリケーションコンテナ)" as ecs
+    component "Auto Scaling Group" as asg
+  }
+
+  package "プライベートサブネット（データ層）" {
+    component "RDS (PostgreSQL)\nMulti-AZ" as rds
+    component "ElastiCache (Redis)\nセッション/キャッシュ" as cache
+  }
+}
+
+package "マネージドサービス" {
+  component "S3\n(静的アセット)" as s3
+  component "Cognito\n(認証・認可)" as cognito
+  component "SQS\n(非同期ジョブキュー)" as sqs
+  component "Lambda\n(バッチ/非同期処理)" as lambda
+  component "CloudWatch\n(ログ・メトリクス監視)" as cw
+}
+
+User --> dns : HTTPSアクセス
+dns --> cdn
+cdn --> s3 : 静的コンテンツ配信
+cdn --> alb : 動的リクエスト
+acm ..> cdn : 証明書適用
+acm ..> alb : 証明書適用
+
+alb --> ecs : リクエスト転送
+asg -[hidden]- ecs
+
+ecs --> rds : SQL
+ecs --> cache : セッション参照
+ecs --> cognito : トークン検証
+ecs --> s3 : ファイルI/O
+ecs --> sqs : ジョブ投入
+
+sqs --> lambda : イベントトリガー
+lambda --> rds : 非同期書き込み
+lambda --> s3 : 処理結果保存
+
+ecs ..> cw : ログ送信
+lambda ..> cw : ログ送信
+rds ..> cw : メトリクス送信
+
+@enduml

@@ -1,0 +1,20 @@
+direction: down
+bounds: 9x18
+metrics: layers=4 crossings=0 dummies=2 long_edges=1 sweeps=6
+rank 0:
+  node "A" order=0 rect=(2,0 5x3)
+rank 1:
+  node "B" order=0 rect=(0,5 5x3)
+  dummy "__dummy_e3_1" order=1 rect=(8,5 1x1)
+rank 2:
+  node "C" order=0 rect=(0,10 5x3)
+  dummy "__dummy_e3_2" order=1 rect=(8,10 1x1)
+rank 3:
+  node "D" order=0 rect=(2,15 5x3)
+edges:
+  e0 "A" -> "B" original=e0 segment=0
+  e1 "B" -> "C" original=e1 segment=0
+  e2 "C" -> "D" original=e2 segment=0
+  e3:0 "A" -> "__dummy_e3_1" original=e3 segment=0
+  e3:1 "__dummy_e3_1" -> "__dummy_e3_2" original=e3 segment=1
+  e3:2 "__dummy_e3_2" -> "D" original=e3 segment=2

@@ -1,0 +1,7 @@
+@startuml
+component "Web Client" as web
+component "Primary Database" as db
+web --> API
+API --> db
+API --> Cache
+@enduml

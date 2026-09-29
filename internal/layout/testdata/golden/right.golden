@@ -1,0 +1,15 @@
+direction: right
+bounds: 19x9
+metrics: layers=3 crossings=0 dummies=0 long_edges=0 sweeps=6
+rank 0:
+  node "A" order=0 rect=(0,2 5x4)
+rank 1:
+  node "B" order=0 rect=(7,0 5x3)
+  node "C" order=1 rect=(7,6 5x3)
+rank 2:
+  node "D" order=0 rect=(14,2 5x4)
+edges:
+  e0 "A" -> "B" original=e0 segment=0
+  e1 "A" -> "C" original=e1 segment=0
+  e2 "B" -> "D" original=e2 segment=0
+  e3 "C" -> "D" original=e3 segment=0

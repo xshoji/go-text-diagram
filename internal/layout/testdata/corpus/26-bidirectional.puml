@@ -1,0 +1,5 @@
+@startuml
+left to right direction
+A --> B
+B --> A
+@enduml

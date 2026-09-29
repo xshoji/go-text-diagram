@@ -1,0 +1,5 @@
+@startuml
+利用者 --> API
+API --> データベース
+API --> キャッシュ
+@enduml
