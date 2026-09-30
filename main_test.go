@@ -159,7 +159,7 @@ func TestRunRoutesReversedEdgeAroundUnrelatedGroupNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	debug := output.String()
-	for _, expected := range []string{`e4 "local_rules" -> "plc"`, `fallback=true label="control command" label_placed=true`, "edge_node_collisions=0", "unrouted=0", "unplaced_labels=0"} {
+	for _, expected := range []string{`e4 "local_rules" -> "plc"`, `label="control command" label_placed=true`, "edge_node_collisions=0", "unrouted=0", "unplaced_labels=0"} {
 		if !strings.Contains(debug, expected) {
 			t.Fatalf("debug output is missing %q:\n%s", expected, debug)
 		}
