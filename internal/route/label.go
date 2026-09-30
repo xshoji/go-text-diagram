@@ -3,9 +3,9 @@ package route
 import (
 	"sort"
 
-	"github.com/xshoji/agents-workspace/internal/geom"
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 type labelCandidate struct {

@@ -1,9 +1,9 @@
 package layout
 
 import (
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/geom"
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 func assignCoordinates(layers [][]*workingNode, direction diagram.Direction, options Options) (map[*workingNode]Rect, int, int) {

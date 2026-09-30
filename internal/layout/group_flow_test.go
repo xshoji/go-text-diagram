@@ -3,7 +3,7 @@ package layout
 import (
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
 )
 
 func TestGroupFlowPlacesDependentSiblingScopesInLaterRankBands(t *testing.T) {

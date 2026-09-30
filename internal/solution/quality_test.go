@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/geom"
 )
 
 func TestIncrementalQualityMatchesFull(t *testing.T) {

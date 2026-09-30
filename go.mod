@@ -1,4 +1,4 @@
-module github.com/xshoji/agents-workspace
+module github.com/xshoji/go-text-diagram
 
 go 1.23
 

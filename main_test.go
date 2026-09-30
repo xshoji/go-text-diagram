@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 func TestRun(t *testing.T) {
@@ -61,7 +61,7 @@ func TestRunHelp(t *testing.T) {
 				t.Fatal(err)
 			}
 			help := output.String()
-			for _, expected := range []string{"Usage: diagram [options] [input-file]", "standard input", "-direction", "-input-format", "-output-format"} {
+			for _, expected := range []string{"Usage: go-text-diagram [options] [input-file]", "standard input", "-direction", "-input-format", "-output-format"} {
 				if !strings.Contains(help, expected) {
 					t.Errorf("help output does not contain %q:\n%s", expected, help)
 				}

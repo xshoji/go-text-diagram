@@ -4,11 +4,11 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/xshoji/agents-workspace/internal/canvas"
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/geom"
-	"github.com/xshoji/agents-workspace/internal/solution"
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/canvas"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/solution"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 type Style = canvas.Style

@@ -3,7 +3,7 @@ package layout
 import (
 	"sort"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
 )
 
 type flowScopeUnit struct {

@@ -1,6 +1,6 @@
 package route
 
-import "github.com/xshoji/agents-workspace/internal/diagram"
+import "github.com/xshoji/go-text-diagram/internal/diagram"
 
 type unitSegment struct {
 	from Point

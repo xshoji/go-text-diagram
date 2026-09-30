@@ -3,8 +3,8 @@ package solve
 import (
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/route"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/route"
 )
 
 func TestCompactCollapsesRepeatedGroupAndStraightRouteRows(t *testing.T) {

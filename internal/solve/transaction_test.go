@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/geom"
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/plantuml"
-	"github.com/xshoji/agents-workspace/internal/route"
-	"github.com/xshoji/agents-workspace/internal/solution"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/plantuml"
+	"github.com/xshoji/go-text-diagram/internal/route"
+	"github.com/xshoji/go-text-diagram/internal/solution"
 )
 
 func transactionSnapshot(t *testing.T) *solution.Snapshot {
@@ -141,7 +141,7 @@ func TestRouteCommitRevisionAndDeepCopy(t *testing.T) {
 }
 
 func TestComputeProblemMatchesLegacyOptimizerAndBoundsAdaptiveWork(t *testing.T) {
-	input, err := os.Open(filepath.Join("..", "..", "cmd", "diagram", "testdata", "e2e", "13-large-system.puml"))
+	input, err := os.Open(filepath.Join("..", "..", "testdata", "e2e", "13-large-system.puml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestCandidateOptionsDoNotHaveSizeCliff(t *testing.T) {
 }
 
 func BenchmarkAdaptiveEvaluatorE2E(b *testing.B) {
-	encoded, err := os.ReadFile(filepath.Join("..", "..", "cmd", "diagram", "testdata", "e2e", "13-large-system.puml"))
+	encoded, err := os.ReadFile(filepath.Join("..", "..", "testdata", "e2e", "13-large-system.puml"))
 	if err != nil {
 		b.Fatal(err)
 	}

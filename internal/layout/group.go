@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 type groupScopeUnit struct {

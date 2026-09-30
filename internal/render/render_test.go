@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/canvas"
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/plantuml"
-	"github.com/xshoji/agents-workspace/internal/route"
-	"github.com/xshoji/agents-workspace/internal/solution"
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/canvas"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/plantuml"
+	"github.com/xshoji/go-text-diagram/internal/route"
+	"github.com/xshoji/go-text-diagram/internal/solution"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 func TestDiagramChain(t *testing.T) {

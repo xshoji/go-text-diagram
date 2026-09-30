@@ -1,9 +1,9 @@
 package route
 
 import (
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/geom"
-	"github.com/xshoji/agents-workspace/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/layout"
 )
 
 func constrainedPortPoints(result *layout.Layout, edge *layout.Edge, from, to *layout.Node, start, end Point, diagnostics *Diagnostics) []Point {

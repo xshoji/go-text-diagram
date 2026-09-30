@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/plantuml"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/plantuml"
 )
 
 func TestProblemDOTRoundTripPreservesSupportedSemantics(t *testing.T) {

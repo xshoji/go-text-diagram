@@ -3,8 +3,8 @@ package route
 import (
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/layout"
 )
 
 func TestAvoidGroupBoundaryOverlapsDetoursCollinearSegment(t *testing.T) {

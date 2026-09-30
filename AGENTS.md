@@ -4,7 +4,7 @@
 
 ## プロジェクト概要
 
-- Go 1.23以降で動作する単一CLIです。実行入口は`cmd/diagram`です。
+- Go 1.23以降で動作する単一CLIです。実行入口はリポジトリルートです。
 - PlantUMLの構造図サブセットまたはDOTを読み込み、Unicode／ASCII図、DOT、GraphMLを出力します。
 - PlantUML完全互換や、旧Graph-Easy風DSLとの互換性はありません。対応範囲は`README.md`とパーサーテストを基準にしてください。
 
@@ -50,9 +50,9 @@ go vet ./...
 CLI全体の描画、決定性、品質契約は次のE2Eテストで確認できます。
 
 ```sh
-go test ./cmd/diagram -run '^TestE2E$' -count=1
+go test . -run '^TestE2E$' -count=1
 ```
 
-表示結果を意図的に変更した場合は、E2Eの構造・品質指標を確認してから描画snapshotを更新してください。ハッシュをテスト通過だけの目的で変更してはいけません。snapshotの契約と更新履歴は`cmd/diagram/testdata/snapshots/README.md`にあります。
+表示結果を意図的に変更した場合は、E2Eの構造・品質指標を確認してから描画snapshotを更新してください。ハッシュをテスト通過だけの目的で変更してはいけません。snapshotの契約と更新履歴は`testdata/snapshots/README.md`にあります。
 
-不具合修正では、再現入力を最も近いパッケージのテストへ追加してください。CLIを通さないと再現できない問題は`cmd/diagram/main_test.go`、実在規模の入力が必要な問題は`cmd/diagram/testdata/regression`へ追加します。
+不具合修正では、再現入力を最も近いパッケージのテストへ追加してください。CLIを通さないと再現できない問題は`main_test.go`、実在規模の入力が必要な問題は`testdata/regression`へ追加します。

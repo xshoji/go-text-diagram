@@ -3,8 +3,8 @@ package route
 import (
 	"sort"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/layout"
 )
 
 func portFor(node *layout.Node, specification diagram.PortHint, incoming bool, direction diagram.Direction, index, count int) Point {

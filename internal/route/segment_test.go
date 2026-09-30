@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
 )
 
 func TestSegmentCountIndexMatchesPairwiseReference(t *testing.T) {

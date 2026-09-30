@@ -6,18 +6,18 @@ import (
 	"io"
 	"os"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/exchange"
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/plantuml"
-	"github.com/xshoji/agents-workspace/internal/render"
-	"github.com/xshoji/agents-workspace/internal/solution"
-	"github.com/xshoji/agents-workspace/internal/solve"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/exchange"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/plantuml"
+	"github.com/xshoji/go-text-diagram/internal/render"
+	"github.com/xshoji/go-text-diagram/internal/solution"
+	"github.com/xshoji/go-text-diagram/internal/solve"
 )
 
 func main() {
 	if err := runWithStderr(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "diagram:", err)
+		fmt.Fprintln(os.Stderr, "go-text-diagram:", err)
 		os.Exit(1)
 	}
 }
@@ -27,7 +27,7 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 }
 
 func runWithStderr(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("diagram", flag.ContinueOnError)
+	flags := flag.NewFlagSet("go-text-diagram", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	direction := flags.String("direction", "", "layout direction: down, right, up, or left")
 	inputFormat := flags.String("input-format", "plantuml", "input format: plantuml or dot")
@@ -38,7 +38,7 @@ func runWithStderr(args []string, stdin io.Reader, stdout, stderr io.Writer) err
 	debugLayout := flags.Bool("debug-layout", false, "print layout and route details instead of a diagram")
 	strict := flags.Bool("strict", false, "reject supported PlantUML statements that have no ASCII rendering effect")
 	flags.Usage = func() {
-		fmt.Fprintln(stdout, "Usage: diagram [options] [input-file]")
+		fmt.Fprintln(stdout, "Usage: go-text-diagram [options] [input-file]")
 		fmt.Fprintln(stdout)
 		fmt.Fprintln(stdout, "Render a PlantUML component diagram as Unicode or ASCII.")
 		fmt.Fprintln(stdout, "If input-file is omitted or is -, input is read from standard input.")
@@ -178,6 +178,6 @@ func writeQualityWarnings(output io.Writer, name string, problem *diagram.Proble
 		case issue.EdgeCollision:
 			reason = "overlaps another route"
 		}
-		fmt.Fprintf(output, "diagram: warning: %s: edge %s -> %s label %q %s\n", location, edge.Source.ID(), edge.Target.ID(), edge.Label, reason)
+		fmt.Fprintf(output, "go-text-diagram: warning: %s: edge %s -> %s label %q %s\n", location, edge.Source.ID(), edge.Target.ID(), edge.Label, reason)
 	}
 }

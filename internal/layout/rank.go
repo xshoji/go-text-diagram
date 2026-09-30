@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
 )
 
 func topologicalOrder(nodes []*workingNode, edges []*workingEdge) ([]*workingNode, error) {

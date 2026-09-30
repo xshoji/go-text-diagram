@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
 )
 
 func TestStronglyConnectedComponentsPartition(t *testing.T) {

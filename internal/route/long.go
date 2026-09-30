@@ -1,6 +1,6 @@
 package route
 
-import "github.com/xshoji/agents-workspace/internal/layout"
+import "github.com/xshoji/go-text-diagram/internal/layout"
 
 const maximumLongRouteExpansions = 1_000_000
 

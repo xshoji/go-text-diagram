@@ -1,8 +1,8 @@
 package route
 
 import (
-	"github.com/xshoji/agents-workspace/internal/geom"
-	"github.com/xshoji/agents-workspace/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/layout"
 )
 
 func improveRoutes(result *layout.Layout, initial []*Edge, diagnostics *Diagnostics, boundaries groupBoundaryIndex) []*Edge {

@@ -1,9 +1,9 @@
 package solve
 
 import (
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/route"
-	"github.com/xshoji/agents-workspace/internal/textwidth"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/route"
+	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
 // compact removes globally redundant rows and columns from a fully routed

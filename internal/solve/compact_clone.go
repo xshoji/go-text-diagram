@@ -1,8 +1,8 @@
 package solve
 
 import (
-	"github.com/xshoji/agents-workspace/internal/layout"
-	"github.com/xshoji/agents-workspace/internal/route"
+	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/route"
 )
 
 type compactionDiagnostics struct {

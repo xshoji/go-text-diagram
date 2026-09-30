@@ -1,6 +1,6 @@
 package layout
 
-import "github.com/xshoji/agents-workspace/internal/textwidth"
+import "github.com/xshoji/go-text-diagram/internal/textwidth"
 
 func (n *Node) CellRect(id string) (Rect, bool) {
 	if n == nil || id == "" {

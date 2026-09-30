@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/xshoji/agents-workspace/internal/diagram"
-	"github.com/xshoji/agents-workspace/internal/geom"
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/geom"
 )
 
 // QualityResult is the complete result of a route quality evaluation.

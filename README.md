@@ -1,4 +1,4 @@
-# Go diagram tool
+# go-text-diagram
 
 A Go CLI that renders a structural subset of PlantUML as Unicode or ASCII diagrams. It focuses on component diagrams and also supports class member endpoints, component ports, nested groups, DOT input, and DOT or GraphML output.
 
@@ -17,10 +17,10 @@ This diagram was rendered by the CLI from PlantUML. It shows the main packages i
    │      └───┬──────┘    │
    └──────────┼───────────┘
               │
-       ┌──────▼──────┐
-       │ cmd/diagram │
-       │     CLI     │
-       └┳───────────┬┘
+       ┌──────▼──────────┐
+       │ go-text-diagram │
+       │       CLI       │
+       └┳───────────┬────┘
        ┏┛           └┐
 ┌─ Parse ────────────┼───────┐
 │      ┃             ╎       │
@@ -65,7 +65,7 @@ This diagram was rendered by the CLI from PlantUML. It shows the main packages i
 ## Quick start
 
 ```sh
-cat <<'PUML' | go run ./cmd/diagram
+cat <<'PUML' | go run .
 @startuml
 A --> B
 A --> C
@@ -77,15 +77,21 @@ PUML
 
 PlantUML input must be enclosed by `@startuml` and `@enduml`.
 
+## Install
+
+```sh
+go install github.com/xshoji/go-text-diagram@latest
+```
+
 ## Usage
 
 ```sh
-go run ./cmd/diagram architecture.puml
-go run ./cmd/diagram - < architecture.puml
-go run ./cmd/diagram --ascii architecture.puml
-go run ./cmd/diagram --max-width=80 architecture.puml
-go run ./cmd/diagram --debug-layout architecture.puml
-go run ./cmd/diagram --help
+go-text-diagram architecture.puml
+go-text-diagram - < architecture.puml
+go-text-diagram --ascii architecture.puml
+go-text-diagram --max-width=80 architecture.puml
+go-text-diagram --debug-layout architecture.puml
+go-text-diagram --help
 ```
 
 The command reads standard input when the input file is omitted or set to `-`.
@@ -110,14 +116,14 @@ Rendering options apply only to diagram output. `--strict` applies only to Plant
 PlantUML is the default input format. Select DOT explicitly:
 
 ```sh
-go run ./cmd/diagram --input-format=dot graph.dot
+go-text-diagram --input-format=dot graph.dot
 ```
 
 Use `--output-format` to convert PlantUML or DOT into DOT or GraphML:
 
 ```sh
-go run ./cmd/diagram --output-format=dot architecture.puml
-go run ./cmd/diagram --output-format=graphml architecture.puml
+go-text-diagram --output-format=dot architecture.puml
+go-text-diagram --output-format=graphml architecture.puml
 ```
 
 The old Graph-Easy-style DSL and `--input-format=diagram` are not supported.
@@ -213,7 +219,7 @@ go vet ./...
 Run the CLI end-to-end suite with:
 
 ```sh
-go test ./cmd/diagram -run '^TestE2E$' -count=1
+go test . -run '^TestE2E$' -count=1
 ```
 
-See [`AGENTS.md`](AGENTS.md) for package responsibilities and contribution guidance. E2E scenarios and render snapshots are documented under [`cmd/diagram/testdata`](cmd/diagram/testdata).
+See [`AGENTS.md`](AGENTS.md) for package responsibilities and contribution guidance. E2E scenarios and render snapshots are documented under [`testdata`](testdata).

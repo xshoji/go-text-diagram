@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xshoji/agents-workspace/internal/route"
+	"github.com/xshoji/go-text-diagram/internal/route"
 )
 
 func TestLineComposition(t *testing.T) {
