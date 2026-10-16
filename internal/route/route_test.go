@@ -40,6 +40,131 @@ func TestComputeJoinsLongEdge(t *testing.T) {
 	}
 }
 
+func TestAutomaticPortsStayInsideNodeCorners(t *testing.T) {
+	const start, size, count = 20, 12, 4
+	for index := 0; index < count; index++ {
+		position := distributedPortPosition(start, size, index, count, portCornerClearance)
+		if position < start+portCornerClearance || position > start+size-1-portCornerClearance {
+			t.Fatalf("port %d at %d is too close to boundary corner", index, position)
+		}
+	}
+
+	rect := layout.Rect{X: 10, Y: 20, Width: 12, Height: 12}
+	for _, side := range []diagram.Side{diagram.SideNorth, diagram.SideEast, diagram.SideSouth, diagram.SideWest} {
+		for _, point := range adaptiveSideSlots(rect, side) {
+			if side == diagram.SideNorth || side == diagram.SideSouth {
+				if point.X < rect.X+portCornerClearance || point.X > rect.X+rect.Width-1-portCornerClearance {
+					t.Fatalf("%s adaptive port %v is too close to a corner", side, point)
+				}
+				continue
+			}
+			if point.Y < rect.Y+portCornerClearance || point.Y > rect.Y+rect.Height-1-portCornerClearance {
+				t.Fatalf("%s adaptive port %v is too close to a corner", side, point)
+			}
+		}
+	}
+}
+
+func TestTwoOutgoingPortsFitCompactNode(t *testing.T) {
+	const start, size = 0, 4
+	clearance := automaticPortClearance(2)
+	first := distributedPortPosition(start, size, 0, 2, clearance)
+	second := distributedPortPosition(start, size, 1, 2, clearance)
+	if first == second || first <= start || second >= start+size-1 {
+		t.Fatalf("two ports overlap or touch a corner: %d, %d", first, second)
+	}
+}
+
+func TestAssignIncomingPortsUsesOriginalSourceForLongEdges(t *testing.T) {
+	t.Parallel()
+
+	for _, direction := range []diagram.Direction{diagram.DirectionRight, diagram.DirectionLeft, diagram.DirectionDown, diagram.DirectionUp} {
+		direction := direction
+		t.Run(direction.String(), func(t *testing.T) {
+			var curated, lineage, dummy, metadata layout.Node
+			if direction.Vertical() {
+				curated = layout.Node{ID: "curated", Rect: layout.Rect{X: 2, Y: 10, Width: 3, Height: 3}}
+				lineage = layout.Node{ID: "lineage", Rect: layout.Rect{X: 12, Y: 40, Width: 3, Height: 3}}
+				dummy = layout.Node{ID: "dummy", Dummy: true, Rect: layout.Rect{X: 10, Y: 25, Width: 1, Height: 1}}
+				metadata = layout.Node{ID: "metadata", Rect: layout.Rect{X: 30, Y: 20, Width: 8, Height: 3}}
+			} else {
+				curated = layout.Node{ID: "curated", Rect: layout.Rect{X: 10, Y: 2, Width: 3, Height: 3}}
+				lineage = layout.Node{ID: "lineage", Rect: layout.Rect{X: 40, Y: 12, Width: 3, Height: 3}}
+				dummy = layout.Node{ID: "dummy", Dummy: true, Rect: layout.Rect{X: 25, Y: 10, Width: 1, Height: 1}}
+				metadata = layout.Node{ID: "metadata", Rect: layout.Rect{X: 20, Y: 30, Width: 3, Height: 8}}
+			}
+			nodes := map[string]*layout.Node{
+				curated.ID: &curated, lineage.ID: &lineage, dummy.ID: &dummy, metadata.ID: &metadata,
+			}
+			direct := &layout.Edge{
+				ID: "e13", From: "curated", To: "metadata", OriginalFrom: "curated", OriginalTo: "metadata",
+				Source: diagram.NodeEndpoint("curated"), Target: diagram.NodeEndpoint("metadata"),
+			}
+			long := &layout.Edge{
+				ID: "e20:1", From: "dummy", To: "metadata", OriginalFrom: "lineage", OriginalTo: "metadata",
+				Source: diagram.NodeEndpoint("lineage"), Target: diagram.NodeEndpoint("metadata"),
+			}
+			_, ends := assignPorts([]*layout.Edge{direct, long}, nodes, direction)
+			if directEnd, longEnd := crossAxisPosition(ends[direct], direction), crossAxisPosition(ends[long], direction); directEnd >= longEnd {
+				t.Fatalf("incoming ports = %d,%d, want curated before lineage", directEnd, longEnd)
+			}
+		})
+	}
+}
+
+func TestIncomingSourceOrderRequiresAutomaticUniqueEndpoints(t *testing.T) {
+	nodes := map[string]*layout.Node{
+		"curated": {ID: "curated"},
+		"lineage": {ID: "lineage"},
+		"dummy":   {ID: "dummy", Dummy: true},
+		"target":  {ID: "target"},
+	}
+	newEdges := func() []*layout.Edge {
+		return []*layout.Edge{
+			{ID: "direct", From: "curated", To: "target", OriginalFrom: "curated", OriginalTo: "target", Source: diagram.NodeEndpoint("curated"), Target: diagram.NodeEndpoint("target")},
+			{ID: "long", From: "dummy", To: "target", OriginalFrom: "lineage", OriginalTo: "target", Source: diagram.NodeEndpoint("lineage"), Target: diagram.NodeEndpoint("target")},
+		}
+	}
+
+	tests := []struct {
+		name string
+		edit func([]*layout.Edge)
+	}{
+		{name: "parallel source", edit: func(edges []*layout.Edge) { edges[1].OriginalFrom = "curated" }},
+		{name: "explicit source side", edit: func(edges []*layout.Edge) { edges[1].Source.PortHint.Side = diagram.SideNorth }},
+		{name: "cell target", edit: func(edges []*layout.Edge) { edges[1].Target.Cell = "id" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			edges := newEdges()
+			test.edit(edges)
+			if incomingPortsUseOriginalSource(edges, nodes) {
+				t.Fatal("ambiguous or constrained incoming bundle used semantic-source order")
+			}
+		})
+	}
+}
+
+func TestLakehouseDirectAndLongFanInDoNotCross(t *testing.T) {
+	t.Parallel()
+	input, err := os.ReadFile("../../testdata/regression/data-lakehouse-ml-platform.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	routes, _ := testBaselineMetrics(layoutDiagram(t, string(input)))
+	byID := make(map[string]*Edge, len(routes))
+	for _, edge := range routes {
+		byID[edge.ID] = edge
+	}
+	direct, long := byID["e13"], byID["e20"]
+	if direct == nil || long == nil {
+		t.Fatalf("routes missing e13/e20: %s", DebugString(routes))
+	}
+	if crossings, overlaps := edgeInteractions(direct, []*Edge{long}); crossings != 0 || overlaps != 0 {
+		t.Fatalf("direct/long fan-in has %d crossings and %d overlaps:\n%s", crossings, overlaps, DebugString([]*Edge{direct, long}))
+	}
+}
+
 func TestComputeKeepsVirtualAndSemanticEdgeIDsSeparate(t *testing.T) {
 	t.Parallel()
 	builder := diagram.NewBuilder("test")
@@ -113,7 +238,7 @@ func TestComputeAvoidsCrossingsForConvergingEdges(t *testing.T) {
 
 	routes, metrics := testBaselineMetrics(result)
 	if metrics.Crossings != 0 {
-		t.Fatalf("converging routes have %d crossings, want 0", metrics.Crossings)
+		t.Fatalf("converging routes have %d crossings, want 0:\n%s", metrics.Crossings, DebugString(routes))
 	}
 	lanes := make(map[string]int, len(routes))
 	for _, edge := range routes {
@@ -121,6 +246,42 @@ func TestComputeAvoidsCrossingsForConvergingEdges(t *testing.T) {
 	}
 	if lanes["e0"] != 2 || lanes["e1"] != 1 || lanes["e2"] != 0 {
 		t.Fatalf("converging lanes = %v, want e0=2 e1=1 e2=0", lanes)
+	}
+}
+
+func TestComputeKeepsDenseGroupFanInCrossingFree(t *testing.T) {
+	const input = `left to right direction
+component "ui" as ui
+component "act" as act
+component "component1" as c1
+component "component2" as c2
+component "component3" as c3
+component "api" as api
+component "mq <<mq>>" as mq
+component "internal-tool" as internal
+package "package1" {
+  component "tool1" as tool1
+  component "publisher1" as publisher1
+  component "subscriber1" as subscriber1
+}
+ui --> tool1 : [ read / write ]\n/api/SampleService/aaa,bbb
+act --> tool1 : [ write ]\n/api/SampleService/aaa
+c1 --> tool1 : [ read ]\n/api/SampleService/aaa\n...etc
+c2 --> tool1 : [ read ]\n/api/SampleService/aaa\n...etc
+c3 --> tool1 : [ read ]\n/api/SampleService/aaa
+internal --> tool1 : [ read / write ]\n/api/SampleService/aaa
+`
+	result := layoutDiagram(t, input)
+	routes, metrics := testBaselineMetrics(result)
+	if metrics.Crossings != 0 || metrics.LabelEdgeCollisions != 0 || metrics.AStarFallbacks != 0 {
+		t.Fatalf("fan-in route quality = %+v; routes:\n%s", metrics, DebugString(routes))
+	}
+	nodes := make(map[string]*layout.Node, len(result.Nodes))
+	for _, node := range result.Nodes {
+		nodes[node.ID] = node
+	}
+	if nodes["internal"].Rect.Y >= nodes["api"].Rect.Y || nodes["internal"].Rect.Y >= nodes["mq"].Rect.Y {
+		t.Fatalf("internal-tool position = %v; api = %v; mq = %v", nodes["internal"].Rect, nodes["api"].Rect, nodes["mq"].Rect)
 	}
 }
 
@@ -326,6 +487,15 @@ func TestComputeRoutesNamedCellsThroughTheirOwnExposedBoundary(t *testing.T) {
 	if !nameBoundary {
 		t.Fatalf("name route ends outside its exposed boundary: cell=%+v point=%+v", name, end)
 	}
+	for _, edge := range routes {
+		for i := 1; i < len(edge.Points); i++ {
+			walkPoints(edge.Points[i-1], edge.Points[i], func(point Point) {
+				if point != edge.Points[0] && point != edge.Points[len(edge.Points)-1] && geom.Contains(record.Rect, point) {
+					t.Errorf("cell route %q touches record outside its port at %v: %v", edge.ID, point, edge.Points)
+				}
+			})
+		}
+	}
 }
 
 func TestComputeClipsNestedGroupEndpointsToGroupBoundaries(t *testing.T) {
@@ -440,6 +610,28 @@ func TestLongRoutesDoNotFollowDisplacedGroupDummyNodes(t *testing.T) {
 	if metrics.ExcessLength > 10 {
 		t.Fatalf("excess route length = %d, want at most 10\n%s", metrics.ExcessLength, DebugString(routes))
 	}
+}
+
+func TestLongRouteRetryAvoidsStaleDummyPath(t *testing.T) {
+	input, err := os.ReadFile("../../testdata/regression/iot-edge-fleet.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := layoutDiagram(t, string(input))
+	routes, metrics := testRoutesMetrics(result)
+	for _, edge := range routes {
+		if edge.ID != "e1" {
+			continue
+		}
+		if !edge.Optimized || len(edge.Points) > 4 {
+			t.Fatalf("vibration-to-gateway route = %+v; want an optimized route with at most 4 points", edge)
+		}
+		if metrics.EdgeNodeCollisions != 0 || metrics.GroupBoundaryOverlaps != 0 || metrics.UnroutedEdges != 0 {
+			t.Fatalf("route metrics = %+v", metrics)
+		}
+		return
+	}
+	t.Fatal("route e1 not found")
 }
 
 func BenchmarkRoute50Nodes100Edges(b *testing.B) {

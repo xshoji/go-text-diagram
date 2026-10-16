@@ -37,6 +37,23 @@ func TestAStarAvoidsNodeObstacle(t *testing.T) {
 	assertOrthogonal(t, points)
 }
 
+func TestEdgeNodeCollisionsIncludesNodeBoundaries(t *testing.T) {
+	result := &layout.Layout{Nodes: []*layout.Node{
+		{ID: "customer", Rect: layout.Rect{X: 114, Y: 20, Width: 20, Height: 3}},
+		{ID: "payment", Rect: layout.Rect{X: 135, Y: 20, Width: 24, Height: 3}},
+	}}
+	edge := &Edge{ID: "e22", From: "customer", To: "customer_db", Points: []Point{
+		{X: 123, Y: 22}, {X: 249, Y: 22}, {X: 249, Y: 29},
+	}}
+	if got := edgeNodeCollisions(result, edge); got != 1 {
+		t.Fatalf("boundary collisions = %d, want payment", got)
+	}
+	edge.Points = []Point{{X: 123, Y: 22}, {X: 123, Y: 23}}
+	if got := edgeNodeCollisions(result, edge); got != 0 {
+		t.Fatalf("valid source exit collisions = %d, want 0", got)
+	}
+}
+
 func TestPathSearchBudgetIsBounded(t *testing.T) {
 	t.Parallel()
 	if got := pathSearchBudget(10, 10); got != 400 {

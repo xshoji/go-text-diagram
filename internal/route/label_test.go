@@ -1,6 +1,7 @@
 package route
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -48,6 +49,54 @@ func TestPlaceLabelsUsesLongestCollisionFreeSegment(t *testing.T) {
 	}
 	if geom.Contains(routes[0].LabelRect, Point{X: 10, Y: 7}) {
 		t.Fatalf("label intersects blocker: %+v", routes[0].LabelRect)
+	}
+}
+
+func TestPlaceLabelsAvoidsGroupBoundaries(t *testing.T) {
+	t.Parallel()
+
+	result := &layout.Layout{
+		Metrics: layout.Metrics{Width: 24, Height: 10},
+		Groups:  []*layout.Group{{Rect: layout.Rect{X: 10, Y: 2, Width: 8, Height: 6}}},
+	}
+	routes := []*Edge{{
+		ID: "access", Label: "access",
+		Points: []Point{{X: 1, Y: 4}, {X: 22, Y: 4}},
+	}}
+
+	placeLabels(result, routes)
+	if !routes[0].LabelPlaced || rectHitsGroupBoundary(routes[0].LabelRect, result.Groups) {
+		t.Fatalf("label was not placed clear of group boundaries: %+v", routes[0])
+	}
+
+	base := cloneRoutes([]*Edge{{ID: "access", Label: "access", Points: routes[0].Points}})
+	changes := PlaceLabelsFrom(result, base, nil, 0, nil)
+	placed := overlayRoutes(base, changes)[0]
+	if !placed.LabelPlaced || rectHitsGroupBoundary(placed.LabelRect, result.Groups) {
+		t.Fatalf("incremental label was not placed clear of group boundaries: %+v", placed)
+	}
+}
+
+func TestHealthcareRoutesAndLabelsAvoidGroupBoundaries(t *testing.T) {
+	t.Parallel()
+
+	input, err := os.ReadFile("../../testdata/regression/healthcare-fhir-platform.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := layoutDiagram(t, string(input))
+	routes, metrics := testBaselineMetrics(result)
+	if metrics.Crossings >= 42 {
+		t.Fatalf("route crossings = %d, want fewer than the original 42", metrics.Crossings)
+	}
+	boundaries := newGroupBoundaryIndex(result.Groups)
+	for _, edge := range routes {
+		if overlaps := boundaries.overlapCount(edge, edge.Points); overlaps != 0 {
+			t.Errorf("route %q shares %d group-boundary segments: %v", edge.ID, overlaps, edge.Points)
+		}
+		if edge.LabelPlaced && rectHitsGroupBoundary(edge.LabelRect, result.Groups) {
+			t.Errorf("label %q on edge %q intersects a group boundary at %+v", edge.Label, edge.ID, edge.LabelRect)
+		}
 	}
 }
 

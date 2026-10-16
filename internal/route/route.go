@@ -182,13 +182,15 @@ func computeInitial(result *layout.Layout, diagnostics *Diagnostics) []*Edge {
 
 	routedSegments := make(map[*layout.Edge]segmentRoute, len(result.Edges))
 	normalLaneCounts := make(map[rankKey]int)
+	groupBoundaries := newGroupBoundaryIndex(result.Groups)
 	for key, edges := range byRank {
 		lanes := make([][]interval, 0)
 		layerEnd := rankExtent(result.Nodes, key.component, key.rank, result.Direction)
 		laneSize := max(1, result.LabelLaneSize)
-		maximumLanes := (abs(rankStart(result.Nodes, key.component, key.rank+1, result.Direction)-layerEnd) - 1) / laneSize
 		starts, ends := assignPorts(edges, nodes, result.Direction)
-		orderConvergingEdges(edges, starts, ends, result.Direction)
+		layerEnd = reserveSourceLead(layerEnd, edges, starts, result.Direction)
+		maximumLanes := (abs(rankStart(result.Nodes, key.component, key.rank+1, result.Direction)-layerEnd) - 1) / laneSize
+		convergingLanes := orderConvergingEdges(edges, starts, ends, result.Direction)
 		priorSegments := make(segmentCountIndex)
 		for _, edge := range edges {
 			from, to := nodes[edge.From], nodes[edge.To]
@@ -197,14 +199,22 @@ func computeInitial(result *layout.Layout, diagnostics *Diagnostics) []*Edge {
 			}
 			start, end := starts[edge], ends[edge]
 			span := crossInterval(start, end, result.Direction)
-			lane := crossingAwareLane(lanes, span, start, end, layerEnd, maximumLanes, laneSize, result.Direction, priorSegments)
+			lane, ordered := convergingLanes[edge]
+			if !ordered || lane < len(lanes) && intervalOverlapsAny(span, lanes[lane]) {
+				lane = crossingAwareLane(lanes, span, start, end, layerEnd, maximumLanes, laneSize, result.Direction, priorSegments)
+			}
 			for lane >= len(lanes) {
 				lanes = append(lanes, nil)
 			}
 			lanes[lane] = append(lanes[lane], span)
 			lanePosition := layerEnd + result.Direction.ForwardSign()*(1+lane*laneSize+(laneSize-1)/2)
 			points := segmentPoints(start, end, lanePosition, result.Direction)
-			if edge.Start.Side != diagram.SideAuto || edge.End.Side != diagram.SideAuto {
+			constrained := edge.Start.Side != diagram.SideAuto || edge.End.Side != diagram.SideAuto
+			if !constrained && (edge.Source.Cell != "" || edge.Target.Cell != "") {
+				semanticEdge := &Edge{Source: edge.Source, Target: edge.Target}
+				constrained = groupBoundaries.overlapCount(semanticEdge, points) > 0
+			}
+			if constrained {
 				points = constrainedPortPoints(result, edge, from, to, start, end, diagnostics)
 			}
 			routedSegments[edge] = segmentRoute{
@@ -408,6 +418,28 @@ func crossInterval(start, end Point, direction diagram.Direction) geom.Interval 
 	return geom.Interval{Start: a, End: b}
 }
 
+func reserveSourceLead(layerEnd int, edges []*layout.Edge, starts map[*layout.Edge]Point, direction diagram.Direction) int {
+	sign := direction.ForwardSign()
+	for _, edge := range edges {
+		if edge.Start.Side != diagram.SideAuto || edge.Source.PortHint.Side != diagram.SideAuto ||
+			edge.Source.PortHint.Offset != nil || edge.Source.Cell != "" || edge.Source.NamedPort != "" {
+			continue
+		}
+		start := starts[edge]
+		coordinate := start.X
+		if direction.Vertical() {
+			coordinate = start.Y
+		}
+		minimum := coordinate + sign*(minimumArrowLeadLength-1)
+		if sign > 0 {
+			layerEnd = max(layerEnd, minimum)
+		} else {
+			layerEnd = min(layerEnd, minimum)
+		}
+	}
+	return layerEnd
+}
+
 func crossingAwareLane(
 	lanes [][]geom.Interval,
 	candidate geom.Interval,
@@ -444,7 +476,8 @@ func crossingAwareLane(
 // orderConvergingEdges routes the edge nearest the targets first so later,
 // outer lanes do not cross earlier terminal segments. Mixed, parallel, and
 // constrained bundles retain input order because that nesting is ambiguous.
-func orderConvergingEdges(edges []*layout.Edge, starts, ends map[*layout.Edge]Point, direction diagram.Direction) {
+func orderConvergingEdges(edges []*layout.Edge, starts, ends map[*layout.Edge]Point, direction diagram.Direction) map[*layout.Edge]int {
+	lanes := make(map[*layout.Edge]int)
 	indicesByTarget := make(map[string][]int)
 	for index, edge := range edges {
 		indicesByTarget[edge.To] = append(indicesByTarget[edge.To], index)
@@ -455,8 +488,7 @@ func orderConvergingEdges(edges []*layout.Edge, starts, ends map[*layout.Edge]Po
 		}
 		sources := make(map[string]bool, len(indices))
 		eligible := true
-		minStart, maxStart := int(^uint(0)>>1), -int(^uint(0)>>1)-1
-		minEnd, maxEnd := int(^uint(0)>>1), -int(^uint(0)>>1)-1
+		startPositions, endPositions := make([]int, 0, len(indices)), make([]int, 0, len(indices))
 		for _, edgeIndex := range indices {
 			edge := edges[edgeIndex]
 			if sources[edge.OriginalFrom] || edge.Start.Side != diagram.SideAuto || edge.End.Side != diagram.SideAuto ||
@@ -468,10 +500,10 @@ func orderConvergingEdges(edges []*layout.Edge, starts, ends map[*layout.Edge]Po
 			}
 			sources[edge.OriginalFrom] = true
 			start, end := crossAxisPosition(starts[edge], direction), crossAxisPosition(ends[edge], direction)
-			minStart, maxStart = min(minStart, start), max(maxStart, start)
-			minEnd, maxEnd = min(minEnd, end), max(maxEnd, end)
+			startPositions = append(startPositions, start)
+			endPositions = append(endPositions, end)
 		}
-		if !eligible || maxStart >= minEnd && minStart <= maxEnd {
+		if !eligible {
 			continue
 		}
 		for left := 0; left < len(indices) && eligible; left++ {
@@ -493,11 +525,14 @@ func orderConvergingEdges(edges []*layout.Edge, starts, ends map[*layout.Edge]Po
 		for index, edgeIndex := range indices {
 			ordered[index] = edges[edgeIndex]
 		}
+		sort.Ints(startPositions)
+		sort.Ints(endPositions)
+		sourcesBeforeTargets := startPositions[len(startPositions)/2] < endPositions[len(endPositions)/2]
 		sort.SliceStable(ordered, func(i, j int) bool {
 			leftPosition := crossAxisPosition(starts[ordered[i]], direction)
 			rightPosition := crossAxisPosition(starts[ordered[j]], direction)
 			if leftPosition != rightPosition {
-				if maxStart < minEnd {
+				if sourcesBeforeTargets {
 					return leftPosition > rightPosition
 				}
 				return leftPosition < rightPosition
@@ -506,8 +541,10 @@ func orderConvergingEdges(edges []*layout.Edge, starts, ends map[*layout.Edge]Po
 		})
 		for index, edgeIndex := range indices {
 			edges[edgeIndex] = ordered[index]
+			lanes[ordered[index]] = index
 		}
 	}
+	return lanes
 }
 
 func crossAxisPosition(point Point, direction diagram.Direction) int {

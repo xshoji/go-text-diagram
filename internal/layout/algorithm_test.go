@@ -91,6 +91,29 @@ func TestRequiredLayerSpacingDoesNotMultiplyLabelExtentByLaneCount(t *testing.T)
 	}
 }
 
+func TestTwoOutgoingPortsKeepDefaultNodeHeight(t *testing.T) {
+	node := &workingNode{label: "OTA Update Service", outgoingPorts: 2}
+	options := DefaultOptions()
+	measureNodeSizes([]*workingNode{node}, diagram.DirectionRight, options)
+	if node.height != options.NodeHeight {
+		t.Fatalf("node height = %d, want %d", node.height, options.NodeHeight)
+	}
+}
+
+func TestLabelRouteLaneSizeBudgetsSpaceForLongLabels(t *testing.T) {
+	t.Parallel()
+
+	if got := labelRouteLaneSize(28, 6); got != 9 {
+		t.Fatalf("lane size for six lanes = %d, want 9", got)
+	}
+	if got := labelRouteLaneSize(28, 7); got != 1 {
+		t.Fatalf("lane size for dense ranks = %d, want 1", got)
+	}
+	if got := labelRouteLaneSize(0, 6); got != 1 {
+		t.Fatalf("lane size without labels = %d, want 1", got)
+	}
+}
+
 func TestCellRectSupportsRaggedRowsAndWideText(t *testing.T) {
 	t.Parallel()
 	node := &Node{
@@ -136,33 +159,6 @@ func TestAssignRanksUsesLongestIncomingPath(t *testing.T) {
 	assignRanks([]*workingNode{a, b, c}, edges)
 	if a.rank != 0 || b.rank != 1 || c.rank != 2 {
 		t.Fatalf("ranks = A:%d B:%d C:%d", a.rank, b.rank, c.rank)
-	}
-}
-
-func TestCompactGroupRanksMovesGroupedSourceIntoAvailableSlack(t *testing.T) {
-	source := &workingNode{id: "source", inputOrder: 0, rank: 0}
-	anchor := &workingNode{id: "anchor", inputOrder: 1, rank: 5}
-	edges := []*workingEdge{{from: source, to: anchor, minLength: 1}}
-	groups := []diagram.Group{{ID: "group", Members: []string{"source"}}}
-
-	compactGroupRanks(groups, []*workingNode{source, anchor}, edges, 3)
-
-	if source.rank != 3 {
-		t.Fatalf("source rank = %d, want bounded rank 3", source.rank)
-	}
-}
-
-func TestCompactGroupRanksPreservesMinimumLengthAndFixedRanks(t *testing.T) {
-	fixed := 0
-	source := &workingNode{id: "source", inputOrder: 0, rank: 0, rankConstraint: diagram.RankConstraint{Fixed: &fixed}}
-	target := &workingNode{id: "target", inputOrder: 1, rank: 3}
-	edges := []*workingEdge{{from: source, to: target, minLength: 2}}
-	groups := []diagram.Group{{ID: "group", Members: []string{"source", "target"}}}
-
-	compactGroupRanks(groups, []*workingNode{source, target}, edges, 10)
-
-	if source.rank != 0 || target.rank != 2 {
-		t.Fatalf("ranks = source:%d target:%d, want 0 and 2", source.rank, target.rank)
 	}
 }
 

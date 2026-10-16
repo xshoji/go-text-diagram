@@ -161,7 +161,6 @@ type Snapshot struct {
 	revision       uint64
 	outerLaneStart int
 	labelLaneSize  int
-	flowApplied    bool
 	manifest       semanticManifest
 }
 
@@ -192,7 +191,7 @@ func FromLegacyCandidate(problem *diagram.Problem, result *layout.Layout, routes
 	snapshot := &Snapshot{
 		direction: result.Direction, bounds: geom.Rect{Width: result.Metrics.Width, Height: result.Metrics.Height},
 		layoutMetrics:  copyLayoutMetrics(result.Metrics),
-		outerLaneStart: result.OuterLaneStart, labelLaneSize: result.LabelLaneSize, flowApplied: result.FlowApplied,
+		outerLaneStart: result.OuterLaneStart, labelLaneSize: result.LabelLaneSize,
 		manifest: semanticManifest{
 			nodes: make(map[string]string), groups: make(map[string]string), edges: make(map[string]semanticEdge), nodeParent: make(map[string]string),
 		},

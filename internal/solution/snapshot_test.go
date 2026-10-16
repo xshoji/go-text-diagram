@@ -85,6 +85,10 @@ func TestSnapshotValidatorRejectsInvalidGeometry(t *testing.T) {
 			s.nodes = append(s.nodes, Node{ID: "C", OriginalNodeID: "C", Rect: geom.Rect{X: 6, Y: 1, Width: 3, Height: 3}})
 			s.manifest.nodes["C"] = "C"
 		}, want: "crosses node"},
+		{name: "route along node boundary", edit: func(s *Snapshot) {
+			s.nodes = append(s.nodes, Node{ID: "C", OriginalNodeID: "C", Rect: geom.Rect{X: 6, Y: 2, Width: 3, Height: 3}})
+			s.manifest.nodes["C"] = "C"
+		}, want: "crosses node"},
 		{name: "group endpoint through same ID node", edit: func(s *Snapshot) {
 			source := diagram.Endpoint{Kind: diagram.EndpointGroup, Group: "A"}
 			s.groups = []Group{{ID: "A", Rect: geom.Rect{X: 0, Y: 0, Width: 7, Height: 7}}}
@@ -235,9 +239,9 @@ func TestValidateGroupBoundaryOverlapContract(t *testing.T) {
 		snapshot.manifest.groups = map[string]string{"group": ""}
 		snapshot.layoutEdges[0].Source = source
 		snapshot.routes[0].Source = source
-		snapshot.routes[0].Points = []geom.Point{{X: 4, Y: 2}, {X: 3, Y: 2}, {X: 3, Y: 5}, {X: 8, Y: 5}, {X: 10, Y: 5}, {X: 10, Y: 2}}
-		snapshot.routes[0].StartSide = diagram.SideWest
-		snapshot.routes[0].Start = ResolvedEndpoint{Semantic: source, Point: snapshot.routes[0].Points[0], Side: diagram.SideWest}
+		snapshot.routes[0].Points = []geom.Point{{X: 8, Y: 2}, {X: 9, Y: 2}, {X: 9, Y: 5}, {X: 8, Y: 5}, {X: 8, Y: 3}, {X: 9, Y: 3}, {X: 9, Y: 2}, {X: 10, Y: 2}}
+		snapshot.routes[0].StartSide = diagram.SideEast
+		snapshot.routes[0].Start = ResolvedEndpoint{Semantic: source, Point: snapshot.routes[0].Points[0], Side: diagram.SideEast}
 		snapshot.routes[0].End.Point = snapshot.routes[0].Points[len(snapshot.routes[0].Points)-1]
 		snapshot.manifest.edges["e0"] = semanticEdge{source: source, target: snapshot.routes[0].Target}
 		if err := snapshot.Validate(); err == nil || !strings.Contains(err.Error(), "overlaps group") {

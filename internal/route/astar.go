@@ -8,7 +8,7 @@ import (
 	"github.com/xshoji/go-text-diagram/internal/layout"
 )
 
-const maximumPathSearchExpansions = 100_000
+const maximumPathSearchExpansions = 250_000
 
 type moveDirection uint8
 
@@ -73,6 +73,8 @@ type searchGrid struct {
 	width             int
 	height            int
 	direction         diagram.Direction
+	startDirection    moveDirection
+	goalDirection     moveDirection
 	start             Point
 	goal              Point
 	blocked           map[Point]bool
@@ -89,10 +91,17 @@ func findPath(result *layout.Layout, edge *Edge, accepted []*Edge) pathSearchRes
 	}
 	start := edge.Points[0]
 	goal := edge.Points[len(edge.Points)-1]
+	var startDirection, goalDirection moveDirection
+	if edge.Constrained || edge.AdaptiveStart {
+		startDirection = movementDirection(edge.Points[0], edge.Points[1])
+		goalDirection = movementDirection(edge.Points[len(edge.Points)-2], goal)
+	}
 	return searchOrthogonalPath(searchGrid{
 		width:             result.Metrics.Width,
 		height:            result.Metrics.Height,
 		direction:         result.Direction,
+		startDirection:    startDirection,
+		goalDirection:     goalDirection,
 		start:             start,
 		goal:              goal,
 		obstacles:         obstacleRects(result.Nodes),
@@ -143,6 +152,10 @@ func searchGridPath(grid searchGrid) ([]Point, bool) {
 		}
 		for _, direction := range preferredDirections(grid.direction) {
 			nextPoint := move(current.state.point, direction)
+			if current.state.point == grid.start && grid.startDirection != moveNone && direction != grid.startDirection ||
+				nextPoint == grid.goal && grid.goalDirection != moveNone && direction != grid.goalDirection {
+				continue
+			}
 			if nextPoint.X < 0 || nextPoint.X >= grid.width || nextPoint.Y < 0 || nextPoint.Y >= grid.height {
 				continue
 			}
@@ -282,6 +295,21 @@ func move(point Point, direction moveDirection) Point {
 		point.X--
 	}
 	return point
+}
+
+func movementDirection(from, to Point) moveDirection {
+	switch {
+	case to.X < from.X:
+		return moveWest
+	case to.X > from.X:
+		return moveEast
+	case to.Y < from.Y:
+		return moveNorth
+	case to.Y > from.Y:
+		return moveSouth
+	default:
+		return moveNone
+	}
 }
 
 func reverseDirection(direction moveDirection, layoutDirection diagram.Direction) bool {

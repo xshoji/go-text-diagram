@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/xshoji/go-text-diagram/internal/diagram"
+	"github.com/xshoji/go-text-diagram/internal/geom"
 	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
@@ -15,13 +16,8 @@ type groupScopeUnit struct {
 	rect    Rect
 }
 
-// packGroupScopes separates every child group from the parent's direct node
-// contents. Vertical layouts reserve disjoint bands because long top-to-bottom
-// groups commonly span the same rows. Horizontal layouts move only colliding
-// scopes to avoid excessive diagram height. Groups are otherwise only bounding
-// boxes around their members, so without this constraint a wide group can
-// accidentally enclose nodes that belong to a sibling or ancestor scope.
-func packGroupScopes(groups []diagram.Group, nodes []*workingNode, edges []*workingEdge, nodeRects map[*workingNode]Rect, vertical, flowFirst bool, spacing int) error {
+// packGroupScopes moves scopes only when their group bounds collide.
+func packGroupScopes(groups []diagram.Group, nodes []*workingNode, edges []*workingEdge, nodeRects map[*workingNode]Rect, vertical bool, spacing int) error {
 	if len(groups) == 0 {
 		return nil
 	}
@@ -155,31 +151,56 @@ func packGroupScopes(groups []diagram.Group, nodes []*workingNode, edges []*work
 			}
 		}
 		if len(directIDs) > 0 {
-			unit := groupScopeUnit{nodes: make(map[*workingNode]bool), order: len(nodes) + len(groups)}
+			if parent != "" {
+				unit := &groupScopeUnit{nodes: make(map[*workingNode]bool)}
+				for id := range directIDs {
+					node := workingByID[id]
+					if node == nil {
+						return fmt.Errorf("%w: group %q references unknown node %q", ErrInvalidGraph, parent, id)
+					}
+					unit.nodes[node] = true
+				}
+				addInternalDummies(unit, func(endpoint diagram.Endpoint) bool {
+					return endpoint.Kind != diagram.EndpointGroup && directIDs[endpoint.ID()]
+				})
+				if err := compactScopeUnit(unit, nodeRects, vertical); err != nil {
+					return err
+				}
+			}
+			unitsByRank := make(map[int]*groupScopeUnit)
 			for id := range directIDs {
 				node := workingByID[id]
 				if node == nil {
 					return fmt.Errorf("%w: group %q references unknown node %q", ErrInvalidGraph, parent, id)
 				}
+				unit := unitsByRank[node.rank]
+				if unit == nil {
+					unit = &groupScopeUnit{nodes: make(map[*workingNode]bool), order: node.inputOrder}
+					unitsByRank[node.rank] = unit
+				}
 				unit.nodes[node] = true
 				unit.order = min(unit.order, node.inputOrder)
 			}
-			addInternalDummies(&unit, func(endpoint diagram.Endpoint) bool {
-				return endpoint.Kind != diagram.EndpointGroup && directIDs[endpoint.ID()]
-			})
-			unit.rect = boundsOfNodeSet(unit.nodes, nodeRects)
-			units = append(units, unit)
-		}
-		if parent != "" {
-			for index := range units {
-				// Child groups compact their own direct members recursively. Only
-				// compact this group's direct-member unit here so nested padding and
-				// sibling group bounds remain intact.
-				if units[index].groupID == "" {
-					if err := compactScopeUnit(&units[index], nodeRects, vertical); err != nil {
-						return err
+			for _, node := range nodes {
+				if !node.dummy {
+					continue
+				}
+				edge := edgeByID[node.ownerEdgeID]
+				if edge != nil && directIDs[edge.source.ID()] && directIDs[edge.target.ID()] {
+					if unit := unitsByRank[edge.from.rank]; unit != nil {
+						unit.nodes[node] = true
 					}
 				}
+			}
+			ranks := make([]int, 0, len(unitsByRank))
+			for rank := range unitsByRank {
+				ranks = append(ranks, rank)
+			}
+			sort.Ints(ranks)
+			for _, rank := range ranks {
+				unit := unitsByRank[rank]
+				unit.rect = boundsOfNodeSet(unit.nodes, nodeRects)
+				units = append(units, *unit)
 			}
 		}
 		if len(units) < 2 {
@@ -191,24 +212,143 @@ func packGroupScopes(groups []diagram.Group, nodes []*workingNode, edges []*work
 			}
 			return units[i].groupID < units[j].groupID
 		})
-		if flowFirst && vertical {
-			placeFlowScopeUnits(units, nodeRects, max(1, spacing))
-			return nil
-		}
-		if !vertical {
-			separateOverlappingScopeUnits(units, nodeRects, vertical, max(1, spacing))
-			return nil
-		}
-		cursor := crossStart(units[0].rect, vertical)
-		for index := range units {
-			unit := &units[index]
-			delta := cursor - crossStart(unit.rect, vertical)
-			moveScopeUnit(unit, nodeRects, vertical, delta)
-			cursor += crossSize(unit.rect, vertical) + max(1, spacing)
-		}
+		separateOverlappingScopeUnits(units, nodeRects, vertical, max(1, spacing))
 		return nil
 	}
 	return pack("")
+}
+
+// alignIsolatedGroupMembers packs disconnected members beside their group peers.
+func alignIsolatedGroupMembers(groups []diagram.Group, nodes []*workingNode, edges []*workingEdge, rects map[*workingNode]Rect, vertical bool) {
+	byID := make(map[string]diagram.Group, len(groups))
+	children := make(map[string][]string)
+	for _, group := range groups {
+		byID[group.ID] = group
+		children[group.Parent] = append(children[group.Parent], group.ID)
+	}
+	if len(byID) == 0 {
+		return
+	}
+
+	nodesByID := make(map[string]*workingNode, len(nodes))
+	for _, node := range nodes {
+		if !node.dummy {
+			nodesByID[node.id] = node
+		}
+	}
+	connected := make(map[string]bool)
+	for _, edge := range edges {
+		connected[edge.originalFrom] = true
+		connected[edge.originalTo] = true
+	}
+
+	var descendants func(string, map[string]bool)
+	descendants = func(groupID string, members map[string]bool) {
+		group := byID[groupID]
+		for _, member := range group.Members {
+			members[member] = true
+		}
+		for _, child := range children[groupID] {
+			descendants(child, members)
+		}
+	}
+
+	orderedNodes := append([]*workingNode(nil), nodes...)
+	sortWorkingNodes(orderedNodes)
+	for _, group := range groups {
+		members := make(map[string]bool)
+		descendants(group.ID, members)
+		var centers []int
+		for id := range members {
+			if !connected[id] {
+				continue
+			}
+			node := nodesByID[id]
+			if node == nil {
+				continue
+			}
+			rect := rects[node]
+			center := rect.X + rect.Width/2
+			if vertical {
+				center = rect.Y + rect.Height/2
+			}
+			centers = append(centers, center)
+		}
+		if len(centers) == 0 {
+			continue
+		}
+		sort.Ints(centers)
+		center := centers[len(centers)/2]
+		for _, node := range orderedNodes {
+			if !members[node.id] || connected[node.id] || node.dummy {
+				continue
+			}
+			candidate := rects[node]
+			if vertical {
+				candidate.Y = center - candidate.Height/2
+			} else {
+				candidate.X = center - candidate.Width/2
+			}
+			blocked := false
+			for _, other := range nodes {
+				if other != node && geom.Overlaps(candidate, rects[other]) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				rects[node] = candidate
+			}
+		}
+	}
+}
+
+func separateOverlappingScopeUnits(units []groupScopeUnit, rects map[*workingNode]Rect, vertical bool, spacing int) {
+	// Flow-separated scopes need one gutter, not cross-axis node spacing.
+	xSpacing, ySpacing := 1, spacing
+	if vertical {
+		xSpacing, ySpacing = spacing, 1
+	}
+	for index := range units {
+		unit := &units[index]
+		for {
+			delta := 0
+			for previous := 0; previous < index; previous++ {
+				if units[previous].groupID == "" && unit.groupID == "" {
+					if scopeRectsOverlap(units[previous].rect, unit.rect, spacing, spacing) {
+						delta = max(delta, overlappingNodeShift(units[previous], *unit, rects, vertical, spacing))
+					}
+					continue
+				}
+				if scopeRectsOverlap(units[previous].rect, unit.rect, xSpacing, ySpacing) {
+					delta = max(delta, crossEnd(units[previous].rect, vertical)+spacing-crossStart(unit.rect, vertical))
+				}
+			}
+			if delta <= 0 {
+				break
+			}
+			moveScopeUnit(unit, rects, vertical, delta)
+		}
+	}
+}
+
+func overlappingNodeShift(previous, current groupScopeUnit, rects map[*workingNode]Rect, vertical bool, spacing int) int {
+	delta := 0
+	for left := range previous.nodes {
+		if left.dummy {
+			continue
+		}
+		for right := range current.nodes {
+			if right.dummy {
+				continue
+			}
+			leftRect, rightRect := rects[left], rects[right]
+			if geom.Overlaps(leftRect, rightRect) {
+				delta = max(delta, crossEnd(leftRect, vertical)+spacing-crossStart(rightRect, vertical))
+			}
+		}
+	}
+	return delta
 }
 
 // compactScopeUnit collapses repeated cross-axis whitespace inside one group
@@ -282,154 +422,6 @@ func compactScopeMap(occupied []bool) []int {
 	return coordinateMap
 }
 
-func placeFlowScopeUnits(units []groupScopeUnit, rects map[*workingNode]Rect, spacing int) {
-	centers := make([]int, len(units))
-	for index, unit := range units {
-		centers[index] = unit.rect.X + (unit.rect.Width-1)/2
-	}
-	sort.Ints(centers)
-	targetCenter := centers[len(centers)/2]
-	for index := range units {
-		unit := &units[index]
-		currentCenter := unit.rect.X + (unit.rect.Width-1)/2
-		moveScopeUnit(unit, rects, true, targetCenter-currentCenter)
-		if unit.groupID == "" {
-			centerIsolatedFlowNodes(unit, rects, targetCenter)
-		}
-	}
-
-	placed := make([][]Rect, len(units))
-	for index := range units {
-		unit := &units[index]
-		current := flowScopeFootprints(unit, rects)
-		selected := nearestFlowScopeOffset(placed[:index], current, spacing)
-		moveScopeUnit(unit, rects, true, selected)
-		for footprint := range current {
-			current[footprint].X += selected
-		}
-		placed[index] = current
-	}
-}
-
-func centerIsolatedFlowNodes(unit *groupScopeUnit, rects map[*workingNode]Rect, targetCenter int) {
-	nodes := make([]*workingNode, 0, len(unit.nodes))
-	for node := range unit.nodes {
-		nodes = append(nodes, node)
-	}
-	sort.Slice(nodes, func(i, j int) bool {
-		left, right := rects[nodes[i]], rects[nodes[j]]
-		if left.Y != right.Y {
-			return left.Y < right.Y
-		}
-		if left.X != right.X {
-			return left.X < right.X
-		}
-		return nodes[i].id < nodes[j].id
-	})
-	priorEnd := 0
-	for index, node := range nodes {
-		rect := rects[node]
-		isolatedBefore := index == 0 || priorEnd <= rect.Y
-		isolatedAfter := index+1 == len(nodes) || rect.Y+rect.Height <= rects[nodes[index+1]].Y
-		if isolatedBefore && isolatedAfter {
-			rect.X += targetCenter - (rect.X + (rect.Width-1)/2)
-			rects[node] = rect
-		}
-		priorEnd = max(priorEnd, rect.Y+rect.Height)
-	}
-	unit.rect = boundsOfNodeSet(unit.nodes, rects)
-}
-
-func flowScopeFootprints(unit *groupScopeUnit, rects map[*workingNode]Rect) []Rect {
-	if unit.groupID != "" {
-		return []Rect{unit.rect}
-	}
-	result := make([]Rect, 0, len(unit.nodes))
-	for node := range unit.nodes {
-		result = append(result, rects[node])
-	}
-	return result
-}
-
-type flowForbiddenInterval struct {
-	start int
-	end   int
-}
-
-func nearestFlowScopeOffset(placed [][]Rect, current []Rect, spacing int) int {
-	var forbidden []flowForbiddenInterval
-	for _, unit := range placed {
-		for _, other := range unit {
-			for _, footprint := range current {
-				if !flowRangesOverlap(other.Y, other.Height, footprint.Y, footprint.Height) {
-					continue
-				}
-				forbidden = append(forbidden, flowForbiddenInterval{
-					start: other.X - spacing - (footprint.X + footprint.Width) + 1,
-					end:   other.X + other.Width + spacing - footprint.X - 1,
-				})
-			}
-		}
-	}
-	if len(forbidden) == 0 {
-		return 0
-	}
-	sort.Slice(forbidden, func(i, j int) bool {
-		if forbidden[i].start != forbidden[j].start {
-			return forbidden[i].start < forbidden[j].start
-		}
-		return forbidden[i].end < forbidden[j].end
-	})
-	merged := forbidden[:1]
-	for _, interval := range forbidden[1:] {
-		last := &merged[len(merged)-1]
-		if interval.start <= last.end+1 {
-			last.end = max(last.end, interval.end)
-			continue
-		}
-		merged = append(merged, interval)
-	}
-	for _, interval := range merged {
-		if interval.start <= 0 && interval.end >= 0 {
-			left, right := interval.start-1, interval.end+1
-			if absInt(left) < absInt(right) {
-				return left
-			}
-			return right
-		}
-	}
-	return 0
-}
-
-func flowRangesOverlap(leftStart, leftSize, rightStart, rightSize int) bool {
-	return leftStart < rightStart+rightSize && rightStart < leftStart+leftSize
-}
-
-func absInt(value int) int {
-	if value < 0 {
-		return -value
-	}
-	return value
-}
-
-func separateOverlappingScopeUnits(units []groupScopeUnit, rects map[*workingNode]Rect, vertical bool, spacing int) {
-	for index := range units {
-		unit := &units[index]
-		for {
-			delta := 0
-			for previous := 0; previous < index; previous++ {
-				if scopeRectsOverlap(units[previous].rect, unit.rect, spacing) {
-					delta = max(delta, crossEnd(units[previous].rect, vertical)+spacing-crossStart(unit.rect, vertical))
-				}
-			}
-			if delta <= 0 {
-				break
-			}
-			moveScopeUnit(unit, rects, vertical, delta)
-		}
-	}
-}
-
 func moveScopeUnit(unit *groupScopeUnit, rects map[*workingNode]Rect, vertical bool, delta int) {
 	for node := range unit.nodes {
 		rect := rects[node]
@@ -481,9 +473,9 @@ func crossEnd(rect Rect, vertical bool) int {
 	return crossStart(rect, vertical) + crossSize(rect, vertical)
 }
 
-func scopeRectsOverlap(left, right Rect, spacing int) bool {
-	return left.X < right.X+right.Width+spacing && right.X < left.X+left.Width+spacing &&
-		left.Y < right.Y+right.Height+spacing && right.Y < left.Y+left.Height+spacing
+func scopeRectsOverlap(left, right Rect, xSpacing, ySpacing int) bool {
+	return left.X < right.X+right.Width+xSpacing && right.X < left.X+left.Width+xSpacing &&
+		left.Y < right.Y+right.Height+ySpacing && right.Y < left.Y+left.Height+ySpacing
 }
 
 func buildGroupRects(groups []diagram.Group, nodeRects map[*workingNode]Rect, nodes map[string]*workingNode) (map[string]Rect, int, error) {

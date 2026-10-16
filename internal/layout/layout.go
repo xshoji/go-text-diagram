@@ -85,7 +85,6 @@ type Layout struct {
 	Metrics        Metrics
 	OuterLaneStart int
 	LabelLaneSize  int
-	FlowApplied    bool
 }
 
 type Options struct {
@@ -97,11 +96,6 @@ type Options struct {
 	MaxWidth     int
 	FeedbackArc  bool
 	Straighten   bool
-	FlowGroups   bool
-	// RankCompactionSteps bounds greedy grouped-node rank moves. Zero keeps
-	// the assigned ranks unchanged so callers can retain an uncompacted
-	// quality baseline.
-	RankCompactionSteps int
 }
 
 func DefaultOptions() Options {
@@ -216,13 +210,6 @@ func Compute(graph *diagram.Problem, options Options) (*Layout, error) {
 	if err := assignRanks(order, edges); err != nil {
 		return nil, err
 	}
-	flowApplied := false
-	if options.FlowGroups && graph.Direction().Vertical() {
-		flowApplied = applyGroupFlowRanks(graph.Groups(), nodes, edges, options.LayerSpacing)
-	}
-	if options.RankCompactionSteps > 0 {
-		compactGroupRanks(graph.Groups(), nodes, edges, options.RankCompactionSteps)
-	}
 	if err := validateDummyExpansion(edges); err != nil {
 		return nil, err
 	}
@@ -238,8 +225,12 @@ func Compute(graph *diagram.Problem, options Options) (*Layout, error) {
 	if spacing := maxSelfLoopsPerNode(loops) + 1; spacing > options.NodeSpacing {
 		options.NodeSpacing = spacing
 	}
+	crossings = improveLayerProximity(layers, edges, graph.Groups(), graph.Direction(), options)
 	initialRects, _, _ := assignCoordinates(layers, graph.Direction(), options)
-	const routeLaneSize = 1
+	// Route lane extents must stay local even when component packing is disabled.
+	weakComponents(nodes, append(edges, loops...), initialRects)
+	laneCount := requiredLayerSpacing(edges, initialRects, graph.Direction(), 0, 1)
+	routeLaneSize := labelRouteLaneSize(labelLaneSize, laneCount)
 	if spacing := requiredLayerSpacing(edges, initialRects, graph.Direction(), options.LayerSpacing, routeLaneSize); spacing > options.LayerSpacing {
 		options.LayerSpacing = spacing
 	}
@@ -248,9 +239,6 @@ func Compute(graph *diagram.Problem, options Options) (*Layout, error) {
 		rects, _, _ := assignCoordinates(layers, graph.Direction(), options)
 		if options.Straighten {
 			straightenCoordinates(layers, edges, rects, graph.Direction().Vertical())
-		}
-		if flowApplied {
-			alignFlowCoordinates(layers, edges, rects, graph.Direction().Vertical(), options.NodeSpacing)
 		}
 		width, height := rectExtent(rects)
 		if options.MaxWidth > 0 {
@@ -271,11 +259,9 @@ func Compute(graph *diagram.Problem, options Options) (*Layout, error) {
 				height += labelMargin * 2
 			}
 		}
-		if err := packGroupScopes(graph.Groups(), nodes, append(edges, loops...), rects, graph.Direction().Vertical(), flowApplied, options.NodeSpacing); err != nil {
+		alignIsolatedGroupMembers(graph.Groups(), nodes, append(edges, loops...), rects, graph.Direction().Vertical())
+		if err := packGroupScopes(graph.Groups(), nodes, append(edges, loops...), rects, graph.Direction().Vertical(), options.NodeSpacing); err != nil {
 			return nil, 0, 0, err
-		}
-		if flowApplied {
-			normalizeRects(rects)
 		}
 		width, height = rectExtent(rects)
 		return rects, width, height, nil
@@ -283,15 +269,6 @@ func Compute(graph *diagram.Problem, options Options) (*Layout, error) {
 	rects, width, height, err := positionNodes()
 	if err != nil {
 		return nil, err
-	}
-	if flowApplied {
-		if spacing := requiredLayerSpacing(edges, rects, graph.Direction(), options.LayerSpacing, routeLaneSize); spacing > options.LayerSpacing {
-			options.LayerSpacing = spacing
-			rects, width, height, err = positionNodes()
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 	outerLaneStart := 0
 	width, height = reserveSpecialRouteSpace(
@@ -351,7 +328,6 @@ func Compute(graph *diagram.Problem, options Options) (*Layout, error) {
 		},
 		OuterLaneStart: outerLaneStart,
 		LabelLaneSize:  routeLaneSize,
-		FlowApplied:    flowApplied,
 	}
 
 	for _, layer := range layers {

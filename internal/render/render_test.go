@@ -153,7 +153,7 @@ func TestDiagramCycle(t *testing.T) {
 	t.Parallel()
 
 	snapshot := renderInput(t, "A --> B\nB --> C\nC --> A\n")
-	want := "  ┌───┐\n  │ A │\n  └─▲─┘\n  ┌─┤\n  │ └─────┐\n  │       │\n┌─▼─┐     │\n│ B │     │\n└─┬─┘     │\n  └─┐     │\n    │     │\n    │     │\n  ┌─▼─┐   │\n  │ C │   │\n  └─┬─┘   │\n    └─────┘\n"
+	want := "  ┌───┐\n  │ A │\n  └─▲─┘\n    │\n  ┌─┴─────┐\n  │       │\n┌─▼─┐     │\n│ B │     │\n└─┬─┘     │\n  │       │\n  └─┐     │\n    │     │\n  ┌─▼─┐   │\n  │ C │   │\n  └─┬─┘   │\n    └─────┘\n"
 	if got := Diagram(snapshot, Unicode); got != want {
 		t.Fatalf("cycle diagram:\n%s\nwant:\n%s", got, want)
 	}

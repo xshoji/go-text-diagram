@@ -8,8 +8,8 @@ import (
 
 const minimumArrowLeadLength = 2
 
-// EnsureArrowLeadSegments repairs arrow terminal geometry after coordinate
-// transforms such as compaction, then replaces labels and returns fresh metrics.
+// EnsureArrowLeadSegments repairs terminal geometry after coordinate transforms,
+// untangles automatic fan-ins, and returns freshly labeled route metrics.
 func EnsureArrowLeadSegments(result *layout.Layout, routes []*Edge, diagnostics *Diagnostics) Metrics {
 	if result == nil {
 		return Metrics{}
@@ -18,6 +18,7 @@ func EnsureArrowLeadSegments(result *layout.Layout, routes []*Edge, diagnostics 
 	ensureArrowLeadSegments(result, routes, diagnostics, boundaries)
 	resetRouteLabels(routes)
 	placeLabelsWithDiagnostics(result, routes, diagnostics)
+	untangleFanIn(result, routes, diagnostics, boundaries)
 	return analyzeWithDiagnostics(result, routes, diagnostics, boundaries)
 }
 
@@ -55,12 +56,14 @@ func ensureArrowLeadSegments(result *layout.Layout, routes []*Edge, diagnostics 
 		if startDirection == (Point{}) || endDirection == (Point{}) {
 			continue
 		}
-		startLength := 1
-		if edge.Kind == diagram.Bidirectional {
-			startLength = minimumArrowLeadLength
+		startStub := edge.Points[1]
+		if sourceLeadNeedsRepair(edge, edge.Points) {
+			startStub = moveBy(start, startDirection, minimumArrowLeadLength)
 		}
-		startStub := moveBy(start, startDirection, startLength)
-		endStub := moveBy(end, Point{X: -endDirection.X, Y: -endDirection.Y}, minimumArrowLeadLength)
+		endStub := edge.Points[len(edge.Points)-2]
+		if targetLeadNeedsRepair(edge, edge.Points) {
+			endStub = moveBy(end, Point{X: -endDirection.X, Y: -endDirection.Y}, minimumArrowLeadLength)
+		}
 		if !pointsWithin([]Point{start, startStub, endStub, end}, result.Metrics.Width, result.Metrics.Height) {
 			continue
 		}
@@ -98,9 +101,7 @@ func localArrowLead(result *layout.Layout, edge *Edge, others []*Edge, boundarie
 		segments.addEdge(other)
 	}
 	startDirection, endDirection := terminalDirections(edge)
-	if edge.Kind == diagram.Bidirectional &&
-		(geom.Manhattan(edge.Points[0], edge.Points[1]) < minimumArrowLeadLength ||
-			startDirection != (Point{}) && stepDirection(edge.Points[0], edge.Points[1]) != startDirection) {
+	if sourceLeadNeedsRepair(edge, edge.Points) {
 		var expanded [][]Point
 		for _, points := range candidates {
 			reversed := append([]Point(nil), points...)
@@ -118,9 +119,7 @@ func localArrowLead(result *layout.Layout, edge *Edge, others []*Edge, boundarie
 		}
 		candidates = expanded
 	}
-	last := len(edge.Points) - 1
-	if geom.Manhattan(edge.Points[last-1], edge.Points[last]) < minimumArrowLeadLength ||
-		endDirection != (Point{}) && stepDirection(edge.Points[last-1], edge.Points[last]) != endDirection {
+	if targetLeadNeedsRepair(edge, edge.Points) {
 		var expanded [][]Point
 		for _, points := range candidates {
 			for length := minimumArrowLeadLength; length <= minimumArrowLeadLength+4; length++ {
@@ -166,37 +165,44 @@ func extendTerminalLead(points []Point, direction Point, length int) [][]Point {
 }
 
 func arrowLeadsSatisfied(edge *Edge, points []Point) bool {
-	if len(points) < 2 {
+	if len(points) < 2 || sourceLeadNeedsRepair(edge, points) {
 		return false
 	}
-	last := len(points) - 1
-	if geom.Manhattan(points[last-1], points[last]) < minimumArrowLeadLength {
+	if targetLeadNeedsRepair(edge, points) {
 		return false
 	}
-	startDirection, endDirection := terminalDirections(edge)
-	if endDirection != (Point{}) && stepDirection(points[last-1], points[last]) != endDirection {
-		return false
-	}
-	return edge.Kind != diagram.Bidirectional ||
-		geom.Manhattan(points[0], points[1]) >= minimumArrowLeadLength &&
-			(startDirection == (Point{}) || stepDirection(points[0], points[1]) == startDirection)
+	return true
 }
 
 func needsArrowLead(edge *Edge) bool {
-	if edge == nil || len(edge.Points) < 2 || edge.Kind == diagram.Undirected ||
-		edge.ArrowStyle == diagram.ArrowNone || !visibleEdge(edge) ||
+	if edge == nil || len(edge.Points) < 2 || edge.SelfLoop || !visibleEdge(edge) ||
 		edge.Source.Kind != diagram.EndpointNode || edge.Target.Kind != diagram.EndpointNode {
 		return false
 	}
-	last := len(edge.Points) - 1
-	startDirection, endDirection := terminalDirections(edge)
-	if geom.Manhattan(edge.Points[last-1], edge.Points[last]) < minimumArrowLeadLength ||
-		endDirection != (Point{}) && stepDirection(edge.Points[last-1], edge.Points[last]) != endDirection {
-		return true
+	return sourceLeadNeedsRepair(edge, edge.Points) || targetLeadNeedsRepair(edge, edge.Points)
+}
+
+func sourceLeadNeedsRepair(edge *Edge, points []Point) bool {
+	if edge == nil || edge.SelfLoop || len(points) < 2 {
+		return false
 	}
-	return edge.Kind == diagram.Bidirectional &&
-		(geom.Manhattan(edge.Points[0], edge.Points[1]) < minimumArrowLeadLength ||
-			startDirection != (Point{}) && stepDirection(edge.Points[0], edge.Points[1]) != startDirection)
+	sourceArrow := edge.Kind == diagram.Bidirectional && edge.ArrowStyle != diagram.ArrowNone
+	if !edge.AdaptiveStart && !edge.Fallback && !sourceArrow {
+		return false
+	}
+	startDirection, _ := terminalDirections(edge)
+	return geom.Manhattan(points[0], points[1]) < minimumArrowLeadLength ||
+		startDirection != (Point{}) && stepDirection(points[0], points[1]) != startDirection
+}
+
+func targetLeadNeedsRepair(edge *Edge, points []Point) bool {
+	if edge == nil || edge.Kind == diagram.Undirected || edge.ArrowStyle == diagram.ArrowNone || len(points) < 2 {
+		return false
+	}
+	last := len(points) - 1
+	_, endDirection := terminalDirections(edge)
+	return geom.Manhattan(points[last-1], points[last]) < minimumArrowLeadLength ||
+		endDirection != (Point{}) && stepDirection(points[last-1], points[last]) != endDirection
 }
 
 func terminalDirections(edge *Edge) (Point, Point) {

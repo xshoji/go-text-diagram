@@ -30,10 +30,12 @@ func ComputeProblemWithDiagnostics(problem *diagram.Problem, options layout.Opti
 	}
 	var diagnostics SolveDiagnostics
 	var best *Result
+	bestGroupWhitespace := 0
+	groupFlowExpansionBudget := maximumGroupFlowAStarExpansions
 	var rejected []error
 	var seenLayouts []*layout.Layout
 	baselineTried := false
-	for _, candidate := range candidateOptionsFor(problem) {
+	for _, candidate := range candidateOptionsFor() {
 		if candidateBudgetExhausted(baselineTried, diagnostics.Route) {
 			break
 		}
@@ -42,17 +44,13 @@ func ComputeProblemWithDiagnostics(problem *diagram.Problem, options layout.Opti
 		}
 		diagnostics.Candidates++
 		candidateOptions := options
-		candidateOptions.FeedbackArc, candidateOptions.Straighten, candidateOptions.FlowGroups = candidate.feedbackArc, candidate.straighten, candidate.flowGroups
-		candidateOptions.RankCompactionSteps = candidate.rankCompactionSteps
+		candidateOptions.FeedbackArc, candidateOptions.Straighten = candidate.feedbackArc, candidate.straighten
 		placed, err := layout.Compute(problem, candidateOptions)
 		if err != nil {
 			rejected = append(rejected, fmt.Errorf("layout candidate %s: %w", candidate.name, err))
 			continue
 		}
 		diagnostics.Layouts++
-		if candidate.flowGroups && !placed.FlowApplied {
-			continue
-		}
 		duplicate := false
 		for _, previous := range seenLayouts {
 			if equivalentLayout(previous, placed) {
@@ -121,8 +119,33 @@ func ComputeProblemWithDiagnostics(problem *diagram.Problem, options layout.Opti
 			}
 		}
 		current := &Result{Snapshot: snapshot, Method: method}
-		if best == nil || solution.CompareQuality(snapshot.Quality(), best.Snapshot.Quality()) < 0 {
+		if len(problem.Groups()) > 0 {
+			switch {
+			case groupFlowExpansionBudget <= 0:
+				diagnostics.GroupFlow = append(diagnostics.GroupFlow, "skipped: solver A* expansion budget exhausted")
+			case best != nil && solution.CompareQuality(snapshot.Quality(), best.Snapshot.Quality()) > 0:
+				diagnostics.GroupFlow = append(diagnostics.GroupFlow, "skipped: candidate route quality is worse than current best")
+			default:
+				compactedLayout, compactedSnapshot, changed := compactGroupFlow(problem, placed, snapshot, &diagnostics, &groupFlowExpansionBudget)
+				if changed {
+					placed = compactedLayout
+					current = &Result{Snapshot: compactedSnapshot, Method: method + "+group-compact"}
+				}
+			}
+		}
+		if finalLayout, finalSnapshot, changed := compactFinal(problem, placed, current.Snapshot, &diagnostics); changed {
+			placed = finalLayout
+			current = &Result{Snapshot: finalSnapshot, Method: current.Method + "+final-compact"}
+			diagnostics.Compactions++
+		}
+		comparison := 0
+		if best != nil {
+			comparison = solution.CompareQuality(current.Snapshot.Quality(), best.Snapshot.Quality())
+		}
+		groupWhitespace := groupFlowWhitespace(problem, placed)
+		if best == nil || comparison < 0 || (comparison == 0 && groupWhitespace < bestGroupWhitespace) {
 			best = current
+			bestGroupWhitespace = groupWhitespace
 		}
 	}
 	if best == nil {
@@ -169,23 +192,12 @@ func candidateBudgetExhausted(baselineTried bool, diagnostics route.Diagnostics)
 }
 
 type candidateOptions struct {
-	name                                string
-	feedbackArc, straighten, flowGroups bool
-	rankCompactionSteps                 int
+	name                    string
+	feedbackArc, straighten bool
 }
 
-func candidateOptionsFor(g *diagram.Problem) []candidateOptions {
-	c := []candidateOptions{}
-	if g != nil && len(g.Groups()) > 0 && g.Direction().Vertical() {
-		c = append(c, candidateOptions{name: "flow-groups", flowGroups: true})
-	}
-	c = append(c, candidateOptions{name: "baseline"}, candidateOptions{name: "feedback-arc", feedbackArc: true}, candidateOptions{name: "straightened", straighten: true})
-	if g != nil && len(g.Groups()) > 0 && !g.Direction().Vertical() {
-		for steps := 1; steps <= 3; steps++ {
-			c = append(c, candidateOptions{name: fmt.Sprintf("rank-compact-%d", steps), rankCompactionSteps: steps})
-		}
-	}
-	return c
+func candidateOptionsFor() []candidateOptions {
+	return []candidateOptions{{name: "baseline"}, {name: "feedback-arc", feedbackArc: true}, {name: "straightened", straighten: true}}
 }
 
 func equivalentLayout(left, right *layout.Layout) bool {
@@ -200,6 +212,7 @@ type SolveDiagnostics struct {
 	CompactionClones, CompactionObjects int
 	ConversionClonedRoutes              int
 	ConversionClonedPoints              int
+	GroupFlow                           []string
 	Route                               route.Diagnostics
 	Transaction                         Diagnostics
 }

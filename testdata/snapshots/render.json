@@ -11,11 +11,11 @@
   {
     "name": "02-branch-and-labels",
     "args": [],
-    "diagram_sha256": "f45732f751a424494270746de5269df537fe6124254ee116325b72963e103bf4",
-    "debug_sha256": "b051e0ac21baa1e6d6739d287b2e5e267ada185feff136c0e2014ba28ba94696",
+    "diagram_sha256": "bc659c92317b1e8bf68455499c9ffd127d669cd127bf18ed47ff20a49c7c2a13",
+    "debug_sha256": "bf4baca9f8b00111572f006f70eb3a8d2d1ebb39d8be5216ca632fe8c72df2c3",
     "optimization": "baseline",
     "bounds": "13x15",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=28 excess_length=0 bends=8 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=27 excess_length=0 bends=7 reverse_moves=0 astar_fallbacks=1 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "03-right-cjk-multiline",
@@ -29,11 +29,11 @@
   {
     "name": "04-cycles-loops-parallel",
     "args": [],
-    "diagram_sha256": "1f43fd43d4901ddb2ab1b921fa8695f7105c9ecd82ad5dcbbb596a9bf9775773",
-    "debug_sha256": "b19b23d56fb31ed2e7e43e4c37ac4d3a659d92bcb566cab5cb671a5e37d5a4ea",
+    "diagram_sha256": "673bc063551aa066f269492d434b41dd260d353de7321514d3cb1fb0fa6a304a",
+    "debug_sha256": "e1e46cc1d580ab5d2eb6f248c8b1eb58c446a2040bd9a1229824073ac817c407",
     "optimization": "baseline+compact",
     "bounds": "12x18",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=8 overlaps=4 length=83 excess_length=36 bends=16 reverse_moves=5 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=9 overlaps=6 length=83 excess_length=36 bends=16 reverse_moves=5 astar_fallbacks=1 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "05-edge-kinds-and-styles",
@@ -45,40 +45,40 @@
     "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=12 excess_length=0 bends=0 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
-    "name": "06-rank-minlen-ports",
+"name": "06-rank-minlen-ports",
     "args": [],
-    "diagram_sha256": "c6b6fd282a9043fd052c9c05d835ec5b52961633f9ca6701e732450b022f71fb",
-    "debug_sha256": "3595620d996a5d4cbbd06ceb1ddbc5f5d4bf826fb97bb91553789354fc048a67",
+    "diagram_sha256": "9e2a580e2010d00dfe79dd58784cd69a830533757a9e1adf5b0aae25d2b7502b",
+    "debug_sha256": "9bfa57c2d556a4117fb951714829c58901e731adeda68a67de1ba6d89dfb1d72",
     "optimization": "baseline+compact",
     "bounds": "14x18",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=1 overlaps=0 length=44 excess_length=8 bends=12 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=1 overlaps=0 length=44 excess_length=8 bends=11 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "07-shapes-record-group",
     "args": [],
-    "diagram_sha256": "282d920076a883c9061d08efbee6b8b8cc83e8add512df82ecc8b0b1f3b6ed68",
-    "debug_sha256": "6a8fa3f00c5e9c26f20478e50ab34ee54f5e989d49be2d7e31e66c7a274b6118",
-    "optimization": "flow-groups+compact",
-    "bounds": "11x20",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=5 excess_length=0 bends=0 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "diagram_sha256": "7c6c306446b31d101424bb6469567bf60da88ea8a168994307c2012a4e851941",
+    "debug_sha256": "2ffb65cae02a4399badfa75dda9ae6d67aa607d95e0feeccb1d46037c0f81207",
+    "optimization": "baseline+compact+final-compact",
+    "bounds": "22x20",
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=17 excess_length=0 bends=1 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "08-nested-groups",
     "args": [],
-    "diagram_sha256": "b45489dc0ef55d76e53711dfd7da28e1e4fbffbfb9938c893c63160c4901839c",
-    "debug_sha256": "431ac92aa78c1410b5e303770cb1b4c926807e10f3b04ea164cd04875b578e1e",
-    "optimization": "flow-groups+compact",
-    "bounds": "15x18",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=5 excess_length=0 bends=0 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "diagram_sha256": "2033a77ed8f402580591671de0d1a844ec5ed0bb35c92d5a5b794d9b2229bde9",
+    "debug_sha256": "11fb31be65166e492aeea7bad91570fb5252c342113ddb262362096b7f99054e",
+    "optimization": "baseline+compact",
+    "bounds": "24x18",
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=15 excess_length=0 bends=2 reverse_moves=0 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "09-cell-and-group-endpoints",
     "args": [],
-    "diagram_sha256": "4712adfe8ab30253e6c1d21a950d6d8ea97cc1e86f25a06a2a2b0773a85f4ed6",
-    "debug_sha256": "d4470b906d7351e3514c228902d3e5ee9475607c5d3f9bf51b3a65f3dfbc1f52",
+    "diagram_sha256": "83c92c2c1cffba86fb501128a238b44dd0e2a4ae312d6048cc7d60a44d4fed38",
+    "debug_sha256": "6aad9e727b9defd57bdae66c1a617ae064eec40e5ee9a3eba2e770afeb19a86d",
     "optimization": "baseline+compact",
-    "bounds": "30x17",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=1 overlaps=0 length=45 excess_length=0 bends=4 reverse_moves=1 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "bounds": "30x7",
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=4 excess_length=0 bends=0 reverse_moves=1 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "10-disconnected-packing",
@@ -94,28 +94,28 @@
   {
     "name": "11-complex-optimized",
     "args": [],
-    "diagram_sha256": "5764573e00ecffe042dcdc2355731891605bbb981e38285557bcc9f2abe6e9e9",
-    "debug_sha256": "9385030107bccd79fb098dc1ba62df841155be9fedfcb4f1fd9b75adca567212",
-    "optimization": "flow-groups+compact",
-    "bounds": "30x46",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=1 overlaps=0 length=158 excess_length=28 bends=18 reverse_moves=2 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "diagram_sha256": "4f427ffaee51da468b8cc43317c7b7ce114801e596c9e5ec30b5c05e75989479",
+    "debug_sha256": "f8688af5372b91fbe65a63b698874ec4a0000b8fc0b2d26a6234a4cd73191c69",
+    "optimization": "baseline+compact",
+    "bounds": "24x46",
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=1 overlaps=0 length=146 excess_length=32 bends=18 reverse_moves=2 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "12-component-ports",
     "args": [],
-    "diagram_sha256": "6be174c08a374b6649c05b75ea741c066bad0a33ac8cfbfb4db15844faa84c1b",
-    "debug_sha256": "e44a1065ff488b880e884d1204d8f448a8740f66284ca932b4404f0958918694",
-    "optimization": "flow-groups+compact",
-    "bounds": "14x13",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=32 excess_length=4 bends=8 reverse_moves=2 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "diagram_sha256": "8dddd9921f6e925449180cad01d9b7e269a9c8a62e8fa07261987abb2ec64da3",
+    "debug_sha256": "f2b3bcdc54496b600a8aa87c32c7575ed4befc77be51b0af8c5f5c2a0cd9a089",
+    "optimization": "baseline+compact+final-compact",
+    "bounds": "27x13",
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=0 overlaps=0 length=45 excess_length=4 bends=8 reverse_moves=2 astar_fallbacks=0 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   },
   {
     "name": "13-large-system",
     "args": [],
-    "diagram_sha256": "8ee2f0437f0eb7396407d0cd5b1f8c3669c032f74b90ba926da36eb68698f663",
-    "debug_sha256": "9fbec73ecc5fdf59776e1eee3e1402a97b7f5ae6e73c72124da8b7b22f804fec",
-    "optimization": "baseline+compact",
-    "bounds": "430x132",
-    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=51 overlaps=6 length=3447 excess_length=154 bends=101 reverse_moves=4 astar_fallbacks=3 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
+    "diagram_sha256": "eebc2cadbd8832892beeb9e4dcd70c6b3a5bfe70487fff30d8c02345ed8ac99b",
+    "debug_sha256": "890f6cd68ed78c9926e54361d3c11ae659d043ecf882174db2562e46c092df53",
+    "optimization": "baseline+compact+group-compact+final-compact",
+    "bounds": "401x145",
+    "route_metrics": "node_overlaps=0 edge_node_collisions=0 group_boundary_overlaps=0 crossings=38 overlaps=3 length=3455 excess_length=134 bends=92 reverse_moves=4 astar_fallbacks=6 unrouted=0 label_node_collisions=0 label_label_collisions=0 label_edge_collisions=0 unplaced_labels=0"
   }
 ]

@@ -6,11 +6,18 @@ import (
 	"github.com/xshoji/go-text-diagram/internal/textwidth"
 )
 
+type compactMode uint8
+
+const (
+	compactInterior compactMode = iota
+	compactStraight
+)
+
 // compact removes globally redundant rows and columns from a fully routed
 // result. Straight lines and group interiors may shrink because repeating the
 // same state does not add information. Nodes, routes, groups, and labels share
 // the same coordinate maps, preserving containment and connectivity.
-func compact(result *layout.Layout, routes []*route.Edge) bool {
+func compact(result *layout.Layout, routes []*route.Edge, mode compactMode) bool {
 	if result == nil || result.Metrics.Width <= 0 || result.Metrics.Height <= 0 {
 		return false
 	}
@@ -47,7 +54,12 @@ func compact(result *layout.Layout, routes []*route.Edge) bool {
 			occupyPoint(occupiedX, point.X)
 			occupyPoint(occupiedY, point.Y)
 		}
+		// With groups, a straight segment outside a box must not pin the
+		// entire box interior. A shared monotone map preserves its topology.
 		for index := 1; index < len(edge.Points); index++ {
+			if mode == compactStraight {
+				break
+			}
 			from, to := edge.Points[index-1], edge.Points[index]
 			if from.X == to.X {
 				occupyPoint(occupiedX, from.X)
@@ -113,6 +125,94 @@ func occupyPoint(occupied []bool, coordinate int) {
 	if coordinate >= 0 && coordinate < len(occupied) {
 		occupied[coordinate] = true
 	}
+}
+
+// Compact one group's columns toward its right edge. Boundary-crossing vertical
+// lines stay fixed so the local map cannot introduce bends outside the group.
+func compactGroup(result *layout.Layout, routes []*route.Edge, index int) bool {
+	group := result.Groups[index]
+	bounds := group.Rect
+	occupied := make([]bool, bounds.Width)
+	inside := func(point route.Point) bool {
+		return point.X >= bounds.X && point.X < bounds.X+bounds.Width &&
+			point.Y >= bounds.Y && point.Y < bounds.Y+bounds.Height
+	}
+	contains := func(rect layout.Rect) bool {
+		return inside(route.Point{X: rect.X, Y: rect.Y}) &&
+			inside(route.Point{X: rect.X + rect.Width - 1, Y: rect.Y + rect.Height - 1})
+	}
+	occupy := func(left, right int) {
+		for x := max(bounds.X, left); x < min(bounds.X+bounds.Width, right); x++ {
+			occupied[x-bounds.X] = true
+		}
+	}
+	occupy(bounds.X, bounds.X+textwidth.String(group.Label)+4)
+	occupy(bounds.X+bounds.Width-1, bounds.X+bounds.Width)
+	for _, node := range result.Nodes {
+		if !node.Dummy && contains(node.Rect) {
+			occupy(node.Rect.X, node.Rect.X+node.Rect.Width)
+		}
+	}
+	for childIndex, child := range result.Groups {
+		if childIndex != index && contains(child.Rect) {
+			occupy(child.Rect.X, child.Rect.X+child.Rect.Width)
+		}
+	}
+	for _, edge := range routes {
+		for _, point := range edge.Points {
+			if inside(point) {
+				occupy(point.X, point.X+1)
+			}
+		}
+		for i := 1; i < len(edge.Points); i++ {
+			from, to := edge.Points[i-1], edge.Points[i]
+			if from.X != to.X || from.X < bounds.X || from.X >= bounds.X+bounds.Width {
+				continue
+			}
+			top, bottom := min(from.Y, to.Y), max(from.Y, to.Y)
+			if bottom >= bounds.Y && top < bounds.Y+bounds.Height &&
+				(top < bounds.Y || bottom >= bounds.Y+bounds.Height) {
+				occupy(from.X, bounds.X+bounds.Width)
+			}
+		}
+		if edge.LabelPlaced && edge.LabelRect.Y < bounds.Y+bounds.Height &&
+			edge.LabelRect.Y+edge.LabelRect.Height > bounds.Y {
+			right := edge.LabelRect.X + edge.LabelRect.Width
+			if !contains(edge.LabelRect) {
+				right = bounds.X + bounds.Width
+			}
+			occupy(edge.LabelRect.X, right)
+		}
+	}
+	xMap, width := compactMap(occupied)
+	if width == bounds.Width {
+		return false
+	}
+	left := bounds.X + bounds.Width - width
+	mapX := func(x int) int { return left + mapped(xMap, x-bounds.X) }
+	for _, node := range result.Nodes {
+		if contains(node.Rect) {
+			node.Rect.X = mapX(node.Rect.X)
+		}
+	}
+	for childIndex, child := range result.Groups {
+		if childIndex != index && contains(child.Rect) {
+			child.Rect.X = mapX(child.Rect.X)
+		}
+	}
+	for _, edge := range routes {
+		for i, point := range edge.Points {
+			if inside(point) {
+				edge.Points[i].X = mapX(point.X)
+			}
+		}
+		edge.Points = normalizePoints(edge.Points)
+		if edge.LabelPlaced && contains(edge.LabelRect) {
+			edge.LabelRect.X = mapX(edge.LabelRect.X)
+		}
+	}
+	group.Rect.X, group.Rect.Width = left, width
+	return true
 }
 
 func insideGroupInterior(groups []*layout.Group, point route.Point) bool {

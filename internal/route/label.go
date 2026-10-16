@@ -98,6 +98,7 @@ func placeLabels(result *layout.Layout, routes []*Edge) {
 			for _, candidate := range candidates {
 				if !rectWithin(candidate.rect, result.Metrics.Width, result.Metrics.Height) ||
 					rectHitsNode(candidate.rect, result.Nodes) ||
+					rectHitsGroupBoundary(candidate.rect, result.Groups) ||
 					rectHitsAny(candidate.rect, occupied) ||
 					!allowRouteOverlap && rectHitsOtherRoute(candidate.rect, edge.ID, routes) {
 					continue
@@ -157,7 +158,8 @@ func PlaceLabelsFromContext(result *layout.Layout, base []*Edge, replacements []
 		for _, allowRouteOverlap := range []bool{false, true} {
 			for _, candidate := range candidates {
 				if !rectWithin(candidate.rect, result.Metrics.Width, result.Metrics.Height) ||
-					rectHitsNode(candidate.rect, result.Nodes) || rectHitsAny(candidate.rect, occupied) ||
+					rectHitsNode(candidate.rect, result.Nodes) || rectHitsGroupBoundary(candidate.rect, result.Groups) ||
+					rectHitsAny(candidate.rect, occupied) ||
 					!allowRouteOverlap && labelRectHitsRoute(candidate.rect, clone.ID, view, replacements, replacementIDs, context) {
 					continue
 				}
@@ -258,18 +260,40 @@ func labelCandidates(label string, points []Point) []labelCandidate {
 			continue
 		}
 		if from.Y == to.Y {
-			for order, y := range []int{from.Y - height, from.Y + 1} {
-				candidates = append(candidates, labelCandidate{
-					rect:    layout.Rect{X: centerX - (width-1)/2, Y: y, Width: width, Height: height},
-					segment: index - 1, segmentLength: length, positionOrder: length + 1 + order,
-				})
+			offsets := []int{0}
+			if length >= width+2 {
+				offsets = centeredOffsets(length + 1)
+			}
+			for offsetOrder, offset := range offsets {
+				x := centerX + offset - (width-1)/2
+				if length >= width+2 && (x <= min(from.X, to.X) || x+width-1 >= max(from.X, to.X)) {
+					continue
+				}
+				for sideOrder, y := range []int{from.Y - height, from.Y + 1} {
+					candidates = append(candidates, labelCandidate{
+						rect:    layout.Rect{X: x, Y: y, Width: width, Height: height},
+						segment: index - 1, segmentLength: length,
+						positionOrder: length + 1 + offsetOrder*2 + sideOrder,
+					})
+				}
 			}
 		} else {
-			for order, x := range []int{from.X - width, from.X + 1} {
-				candidates = append(candidates, labelCandidate{
-					rect:    layout.Rect{X: x, Y: centerY - (height-1)/2, Width: width, Height: height},
-					segment: index - 1, segmentLength: length, positionOrder: length + 1 + order,
-				})
+			offsets := []int{0}
+			if length >= height+2 {
+				offsets = centeredOffsets(length + 1)
+			}
+			for offsetOrder, offset := range offsets {
+				y := centerY + offset - (height-1)/2
+				if length >= height+2 && (y <= min(from.Y, to.Y) || y+height-1 >= max(from.Y, to.Y)) {
+					continue
+				}
+				for sideOrder, x := range []int{from.X - width, from.X + 1} {
+					candidates = append(candidates, labelCandidate{
+						rect:    layout.Rect{X: x, Y: y, Width: width, Height: height},
+						segment: index - 1, segmentLength: length,
+						positionOrder: length + 1 + offsetOrder*2 + sideOrder,
+					})
+				}
 			}
 		}
 	}
@@ -304,6 +328,22 @@ func rectWithin(rect layout.Rect, width, height int) bool {
 func rectHitsNode(rect layout.Rect, nodes []*layout.Node) bool {
 	for _, node := range nodes {
 		if !node.Dummy && geom.Overlaps(rect, node.Rect) {
+			return true
+		}
+	}
+	return false
+}
+
+func rectHitsGroupBoundary(rect layout.Rect, groups []*layout.Group) bool {
+	for _, group := range groups {
+		if group == nil || group.Rect.Width <= 0 || group.Rect.Height <= 0 {
+			continue
+		}
+		bounds := group.Rect
+		if geom.Overlaps(rect, layout.Rect{X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: 1}) ||
+			geom.Overlaps(rect, layout.Rect{X: bounds.X, Y: bounds.Y + bounds.Height - 1, Width: bounds.Width, Height: 1}) ||
+			geom.Overlaps(rect, layout.Rect{X: bounds.X, Y: bounds.Y, Width: 1, Height: bounds.Height}) ||
+			geom.Overlaps(rect, layout.Rect{X: bounds.X + bounds.Width - 1, Y: bounds.Y, Width: 1, Height: bounds.Height}) {
 			return true
 		}
 	}

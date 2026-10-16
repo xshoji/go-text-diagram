@@ -243,6 +243,10 @@ func adaptiveCandidateEdges(routes []*Edge, result *layout.Layout, groupBoundari
 		}
 		crossings, overlaps := (adaptiveGeometryView{base: geometry}).interactions(edge.ID, edge.Points)
 		structural := edgeNodeCollisions(result, edge) + groupBoundaries.overlapCount(edge, edge.Points)
+		if len(edge.Points) > 1 && edge.StartAuto && sideStep(edge.StartSide) != (Point{}) &&
+			stepDirection(edge.Points[0], edge.Points[1]) != sideStep(edge.StartSide) {
+			structural++
+		}
 		if structural == 0 && crossings == 0 && overlaps == 0 {
 			continue
 		}
@@ -315,6 +319,15 @@ func rerouteAdaptiveBundle(
 		bundle = append(bundle, current)
 		bundleIDs[current.ID] = true
 	}
+	// Route larger cross-axis targets first so later links can nest toward nearer targets.
+	sort.SliceStable(bundle, func(i, j int) bool {
+		left, right := nodes[bundle[i].To], nodes[bundle[j].To]
+		leftPosition, rightPosition := crossCenter(left, result.Direction), crossCenter(right, result.Direction)
+		if leftPosition != rightPosition {
+			return leftPosition > rightPosition
+		}
+		return bundle[i].ID < bundle[j].ID
+	})
 	starts := allocateAdaptiveStartPorts(source, bundle, routes, assignment, nodes)
 	accepted := make([]*Edge, 0, len(routes))
 	for _, edge := range routes {
@@ -532,11 +545,12 @@ func allocateAdaptiveStartPorts(source *layout.Node, bundle, routes []*Edge, ass
 func adaptiveSideSlots(rect layout.Rect, side diagram.Side) []Point {
 	var result []Point
 	if side == diagram.SideNorth || side == diagram.SideSouth {
+		clearance := min(portCornerClearance, max(1, (rect.Width-3)/2))
 		y := rect.Y
 		if side == diagram.SideSouth {
 			y += rect.Height - 1
 		}
-		for x := rect.X + 1; x < rect.X+rect.Width-1; x++ {
+		for x := rect.X + clearance; x < rect.X+rect.Width-clearance; x++ {
 			result = append(result, Point{X: x, Y: y})
 		}
 		if len(result) == 0 {
@@ -548,7 +562,8 @@ func adaptiveSideSlots(rect layout.Rect, side diagram.Side) []Point {
 	if side == diagram.SideEast {
 		x += rect.Width - 1
 	}
-	for y := rect.Y + 1; y < rect.Y+rect.Height-1; y++ {
+	clearance := min(portCornerClearance, max(1, (rect.Height-3)/2))
+	for y := rect.Y + clearance; y < rect.Y+rect.Height-clearance; y++ {
 		result = append(result, Point{X: x, Y: y})
 	}
 	if len(result) == 0 {

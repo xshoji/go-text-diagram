@@ -48,6 +48,32 @@ func optimizeLongRoutes(result *layout.Layout, routes []*Edge, diagnostics *Diag
 		}
 		accepted = append(accepted, edge)
 	}
+	// Retry rejected routes against selected paths, not stale dummy-node routes.
+	for _, edge := range routes {
+		if !edge.Long || edge.Reversed || edge.SelfLoop || !visibleEdge(edge) || edge.Optimized {
+			continue
+		}
+		if remaining < 64 {
+			break
+		}
+		accepted = accepted[:0]
+		for _, other := range routes {
+			if other != edge {
+				accepted = append(accepted, other)
+			}
+		}
+
+		search := findLongPath(result, edge, accepted, boundaries, min(perSearch, remaining))
+		remaining -= search.gridExpansions
+		recordPathSearch(diagnostics, search)
+		if !search.found || !preferLongCandidate(result, edge, search.points, geometry, boundaries) {
+			continue
+		}
+		geometry.remove(edge.ID)
+		edge.Points = search.points
+		edge.Optimized = true
+		geometry.add(edge)
+	}
 	return routes
 }
 
@@ -117,10 +143,13 @@ func preferLongCandidate(result *layout.Layout, edge *Edge, points []Point, geom
 	baselineCrossings, baselineOverlaps := view.interactions(edge.ID, edge.Points)
 	candidateCrossings, candidateOverlaps := view.interactions(edge.ID, points)
 	if candidateCrossings > baselineCrossings || candidateOverlaps > baselineOverlaps {
-		return false
+		if candidateBoundaries >= baselineBoundaries || candidateCollisions > baselineCollisions {
+			return false
+		}
+		return true
 	}
-	if candidateCrossings+candidateOverlaps != baselineCrossings+baselineOverlaps {
-		return candidateCrossings+candidateOverlaps < baselineCrossings+baselineOverlaps
+	if candidateCrossings < baselineCrossings || candidateOverlaps < baselineOverlaps {
+		return true
 	}
 	baselineGeometry := max(0, len(edge.Points)-2)*5 + pathLength(edge.Points)
 	candidateGeometry := max(0, len(points)-2)*5 + pathLength(points)

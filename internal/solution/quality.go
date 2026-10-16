@@ -496,7 +496,7 @@ func contribution(s *Snapshot, e RoutedEdge, boundaries map[unitSegment]map[stri
 		})
 		walkPoints(a, b, func(p geom.Point) {
 			for _, node := range s.nodes {
-				if !node.Dummy && node.ID != e.From && node.ID != e.To && !collided[node.ID] && geom.ContainsInterior(node.Rect, p) {
+				if !node.Dummy && node.ID != e.From && node.ID != e.To && !collided[node.ID] && geom.Contains(node.Rect, p) {
 					collided[node.ID] = true
 					c.metrics.EdgeNodeCollisions++
 				}

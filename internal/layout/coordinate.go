@@ -104,6 +104,20 @@ func requiredLayerSpacing(edges []*workingEdge, rects map[*workingNode]Rect, dir
 	return required
 }
 
+// labelRouteLaneSize widens lanes only when their aggregate span stays bounded.
+func labelRouteLaneSize(labelSize, laneCount int) int {
+	const laneDivisor, maxLabelWidths = 3, 2
+	if labelSize <= 0 || laneCount <= 0 {
+		return 1
+	}
+
+	laneSize := max(1, labelSize/laneDivisor)
+	if laneCount*laneSize > labelSize*maxLabelWidths {
+		return 1
+	}
+	return laneSize
+}
+
 func assignPortRequirements(nodes []*workingNode, edges []*workingEdge) {
 	for _, node := range nodes {
 		node.incomingPorts, node.outgoingPorts = 0, 0
@@ -137,11 +151,21 @@ func measureNodeSizes(nodes []*workingNode, direction diagram.Direction, options
 		}
 		node.width = max(options.NodeWidth, labelWidth+4)
 		node.height = max(options.NodeHeight, len(lines)+2)
-		ports := max(node.incomingPorts, node.outgoingPorts)
+		portSize := 0
+		if node.incomingPorts > 1 {
+			portSize = node.incomingPorts + 2
+		}
+		if node.outgoingPorts > 2 {
+			clearance := 4
+			portSize = max(portSize, node.outgoingPorts+2*clearance)
+		}
+		if portSize == 0 {
+			continue
+		}
 		if direction.Vertical() {
-			node.width = max(node.width, ports+2)
+			node.width = max(node.width, portSize)
 		} else {
-			node.height = max(node.height, ports+2)
+			node.height = max(node.height, portSize)
 		}
 	}
 }

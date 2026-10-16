@@ -124,7 +124,7 @@ func runWithStderr(args []string, stdin io.Reader, stdout, stderr io.Writer) err
 
 	options := layout.DefaultOptions()
 	options.MaxWidth = *maxWidth
-	optimized, err := solve.ComputeProblem(problem, options)
+	optimized, diagnostics, err := solve.ComputeProblemWithDiagnostics(problem, options)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,11 @@ func runWithStderr(args []string, stdin io.Reader, stdout, stderr io.Writer) err
 	}
 	output := ""
 	if *debugLayout {
-		output = "optimization: " + optimized.Method + "\n" + snapshot.DebugString()
+		output = "optimization: " + optimized.Method + "\n"
+		for _, message := range diagnostics.GroupFlow {
+			output += "group_flow: " + message + "\n"
+		}
+		output += snapshot.DebugString()
 	} else {
 		style := render.Unicode
 		if *ascii {

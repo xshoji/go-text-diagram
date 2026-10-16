@@ -233,7 +233,7 @@ func TestE2E(t *testing.T) {
 		{name: "06-rank-minlen-ports", edges: 4, expected: []string{"root", "left", "right", "sink"}, allowedQuality: []string{"crossings", "overlaps"}},
 		{name: "07-shapes-record-group", edges: 2, expected: []string{"Name", "Type", "id", "int", "Service"}},
 		{name: "08-nested-groups", edges: 2, expected: []string{"System", "Backend", "web", "api", "db"}},
-		{name: "09-cell-and-group-endpoints", edges: 2, expected: []string{"識別子", "Name", "Services", "target"}, allowedQuality: []string{"crossings", "overlaps", "reverse_moves"}},
+		{name: "09-cell-and-group-endpoints", edges: 2, expected: []string{"識別子", "Name", "Services", "target"}, allowedQuality: []string{"reverse_moves"}},
 		{name: "10-disconnected-packing", args: []string{"--max-width=21"}, edges: 0, expected: []string{"Alpha │ │ Beta", "Gamma │ │ Delta"}},
 		{name: "11-complex-optimized", edges: 7, expected: []string{"Client", "Gateway", "ID", "Name", "Role", "orders", "cache", "database", "request", "lookup", "create", "retry"}, allowedQuality: []string{"crossings", "reverse_moves"}},
 		{name: "12-component-ports", edges: 4, expected: []string{"Backend", "Worker", "Client", "Database"}, allowedQuality: []string{"crossings", "reverse_moves"}},

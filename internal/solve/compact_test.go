@@ -1,11 +1,59 @@
 package solve
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/xshoji/go-text-diagram/internal/layout"
+	"github.com/xshoji/go-text-diagram/internal/plantuml"
 	"github.com/xshoji/go-text-diagram/internal/route"
 )
+
+func TestIoTFinalCompaction(t *testing.T) {
+	input, err := os.ReadFile("../../testdata/regression/iot-edge-fleet.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem, err := plantuml.ParseProblem(strings.NewReader(string(input)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := ComputeProblem(problem, layout.DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := result.Snapshot.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	// Previously 421x72: exterior straight runs pinned the group interiors.
+	// Preserve the area reduction without trimming group padding to meet a height cap.
+	bounds := result.Snapshot.Bounds()
+	if bounds.Width > 360 || bounds.Width*bounds.Height >= 421*72 {
+		t.Fatalf("group whitespace remains: bounds=%+v", bounds)
+	}
+	// Global bounds alone missed the 76-column gap inside Factory Site.
+	var sensorRight, gatewayLeft int
+	for _, node := range result.Snapshot.Nodes() {
+		switch node.ID {
+		case "temperature":
+			sensorRight = node.Rect.X + node.Rect.Width
+		case "edge_gateway":
+			gatewayLeft = node.Rect.X
+		}
+	}
+	if gap := gatewayLeft - sensorRight; gap < 0 || gap > 30 {
+		t.Fatalf("Factory Site rank gap = %d, want at most 30 columns", gap)
+	}
+	metrics := result.Snapshot.RouteMetrics()
+	if metrics.Crossings > 7 || metrics.Overlaps > 1 || metrics.Bends > 56 || metrics.ReverseMoves > 2 {
+		t.Fatalf("compaction increased route complexity: %+v", metrics)
+	}
+	if metrics.UnroutedEdges+metrics.NodeOverlaps+metrics.EdgeNodeCollisions+metrics.GroupBoundaryOverlaps+
+		metrics.LabelNodeCollisions+metrics.LabelLabelCollisions+metrics.LabelEdgeCollisions+metrics.UnplacedLabels != 0 {
+		t.Fatalf("compaction introduced collisions or lost routes/labels: %+v", metrics)
+	}
+}
 
 func TestCompactCollapsesRepeatedGroupAndStraightRouteRows(t *testing.T) {
 	result := &layout.Layout{
@@ -18,7 +66,7 @@ func TestCompactCollapsesRepeatedGroupAndStraightRouteRows(t *testing.T) {
 	}
 	edges := []*route.Edge{{ID: "edge", Points: []route.Point{{X: 4, Y: 4}, {X: 4, Y: 14}}}}
 
-	if !compact(result, edges) {
+	if !compact(result, edges, compactInterior) {
 		t.Fatal("compact reported no change")
 	}
 	if result.Metrics.Height >= 20 || result.Groups[0].Rect.Height >= 20 {

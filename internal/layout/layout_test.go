@@ -324,40 +324,6 @@ func TestLayoutBuildsNestedGroupBounds(t *testing.T) {
 	}
 }
 
-func TestCompactScopeUnitCollapsesLocalWhitespace(t *testing.T) {
-	t.Parallel()
-	top := &workingNode{id: "top"}
-	bottom := &workingNode{id: "bottom"}
-	rects := map[*workingNode]Rect{
-		top:    {X: 4, Y: 2, Width: 5, Height: 3},
-		bottom: {X: 4, Y: 20, Width: 5, Height: 3},
-	}
-	unit := groupScopeUnit{nodes: map[*workingNode]bool{top: true, bottom: true}}
-
-	if err := compactScopeUnit(&unit, rects, false); err != nil {
-		t.Fatal(err)
-	}
-
-	if gap := rects[bottom].Y - (rects[top].Y + rects[top].Height); gap != 1 {
-		t.Fatalf("local vertical gap = %d, want 1: top=%+v bottom=%+v", gap, rects[top], rects[bottom])
-	}
-}
-
-func TestCompactScopeUnitRejectsOversizedSpan(t *testing.T) {
-	t.Parallel()
-	left := &workingNode{id: "left"}
-	right := &workingNode{id: "right"}
-	rects := map[*workingNode]Rect{
-		left:  {Width: 1, Height: 1},
-		right: {X: int(maximumLayoutCells), Width: 1, Height: 1},
-	}
-	unit := groupScopeUnit{nodes: map[*workingNode]bool{left: true, right: true}}
-
-	if err := compactScopeUnit(&unit, rects, true); !errors.Is(err, ErrInvalidGraph) {
-		t.Fatalf("error = %v, want ErrInvalidGraph", err)
-	}
-}
-
 func TestLayoutKeepsForeignNodesOutsideGroupScopes(t *testing.T) {
 	t.Parallel()
 	const input = `component "End User" as user

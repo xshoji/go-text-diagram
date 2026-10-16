@@ -177,7 +177,7 @@ func analyzeWithGroupBoundaries(result *layout.Layout, routes []*Edge, groupBoun
 					if node.Dummy || node.ID == edge.From || node.ID == edge.To || collidedNodes[node.ID] {
 						continue
 					}
-					if geom.ContainsInterior(node.Rect, point) {
+					if geom.Contains(node.Rect, point) {
 						collidedNodes[node.ID] = true
 						metrics.EdgeNodeCollisions++
 					}

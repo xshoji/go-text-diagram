@@ -99,6 +99,158 @@ func TestRouteTransactionRejectsSemanticAttributeChanges(t *testing.T) {
 	}
 }
 
+func TestDigitalBankFanoutReroutesWithFewerCrossings(t *testing.T) {
+	input, err := os.ReadFile("../../testdata/regression/digital-bank-payments.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem, err := plantuml.ParseProblem(strings.NewReader(string(input)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := ComputeProblem(problem.WithDirection(diagram.DirectionDown), layout.DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if crossings := result.Snapshot.RouteMetrics().Crossings; crossings >= 27 {
+		t.Fatalf("route crossings = %d, want fewer than the previous 27", crossings)
+	}
+}
+
+func TestDigitalBankSourcesKeepCornerClearanceAndLead(t *testing.T) {
+	input, err := os.ReadFile("../../testdata/regression/digital-bank-payments.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem, err := plantuml.ParseProblem(strings.NewReader(string(input)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := ComputeProblem(problem.WithDirection(diagram.DirectionDown), layout.DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := result.Snapshot.Validate(); err != nil {
+		t.Fatal(err)
+	}
+
+	nodes := make(map[string]solution.Node)
+	for _, node := range result.Snapshot.Nodes() {
+		nodes[node.ID] = node
+	}
+	routes := make(map[string]solution.RoutedEdge)
+	for _, edge := range result.Snapshot.Routes() {
+		routes[edge.ID] = edge
+	}
+	for _, id := range []string{"e9", "e20"} {
+		edge, ok := routes[id]
+		if !ok {
+			t.Fatalf("route %q is missing", id)
+		}
+		node := nodes[edge.From]
+		point := edge.Start.Point
+		clearance, sideSize := 0, 0
+		switch edge.Start.Side {
+		case diagram.SideNorth, diagram.SideSouth:
+			clearance = min(point.X-node.Rect.X, node.Rect.X+node.Rect.Width-1-point.X)
+			sideSize = node.Rect.Width
+		case diagram.SideEast, diagram.SideWest:
+			clearance = min(point.Y-node.Rect.Y, node.Rect.Y+node.Rect.Height-1-point.Y)
+			sideSize = node.Rect.Height
+		default:
+			t.Fatalf("route %q has unresolved source side %s", id, edge.Start.Side)
+		}
+		if required := min(4, (sideSize-1)/2); clearance < required {
+			t.Fatalf("route %q source point %v is only %d cells from a corner; want %d", id, point, clearance, required)
+		}
+		if len(edge.Points) < 2 || geom.Manhattan(edge.Points[0], edge.Points[1]) < 1 {
+			t.Fatalf("route %q has no source lead: %v", id, edge.Points)
+		}
+		distance := geom.Manhattan(edge.Points[0], edge.Points[1])
+		got := geom.Point{X: edge.Points[1].X - edge.Points[0].X, Y: edge.Points[1].Y - edge.Points[0].Y}
+		var want geom.Point
+		switch edge.Start.Side {
+		case diagram.SideNorth:
+			want.Y = -distance
+		case diagram.SideEast:
+			want.X = distance
+		case diagram.SideSouth:
+			want.Y = distance
+		case diagram.SideWest:
+			want.X = -distance
+		}
+		if got != want {
+			t.Fatalf("route %q starts in direction %v, want %v (auto=%t adaptive=%t side=%s): %v", id, got, want, edge.StartAuto, edge.AdaptiveStart, edge.StartSide, edge.Points)
+		}
+	}
+}
+
+func TestLakehouseFanInKeepsDirectEdgeAboveLongEdge(t *testing.T) {
+	input, err := os.ReadFile("../../testdata/regression/data-lakehouse-ml-platform.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem, err := plantuml.ParseProblem(strings.NewReader(string(input)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := ComputeProblem(problem, layout.DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	routes := result.Snapshot.Routes()
+	byID := make(map[string]solution.RoutedEdge, len(routes))
+	for _, edge := range routes {
+		byID[edge.ID] = edge
+	}
+	direct, directOK := byID["e13"]
+	long, longOK := byID["e20"]
+	if !directOK || !longOK {
+		t.Fatalf("routes missing e13/e20: %v", byID)
+	}
+	if direct.End.Point.Y >= long.End.Point.Y {
+		t.Fatalf("metadata ports: direct=%+v long=%+v", direct.End.Point, long.End.Point)
+	}
+	metrics := result.Snapshot.RouteMetrics()
+	if metrics.Crossings >= 23 || metrics.GroupBoundaryOverlaps != 0 {
+		t.Fatalf("route metrics = %+v, want fewer than 23 crossings and no group-boundary overlaps", metrics)
+	}
+}
+
+func TestHealthcareFanIn(t *testing.T) {
+	input, err := os.ReadFile("../../testdata/regression/healthcare-fhir-platform.puml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem, err := plantuml.ParseProblem(strings.NewReader(string(input)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, direction := range []diagram.Direction{diagram.DirectionRight, diagram.DirectionLeft, diagram.DirectionDown, diagram.DirectionUp} {
+		t.Run(direction.String(), func(t *testing.T) {
+			result, err := ComputeProblem(problem.WithDirection(direction), layout.DefaultOptions())
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, sources := range [][2]string{{"patient", "hl7"}, {"lab", "pharmacy"}} {
+				var incoming []*route.Edge
+				for _, edge := range result.Snapshot.Routes() {
+					if edge.To == "fhir" && (edge.From == sources[0] || edge.From == sources[1]) {
+						incoming = append(incoming, &route.Edge{ID: edge.ID, Points: edge.Points})
+					}
+				}
+				if len(incoming) != 2 {
+					t.Fatalf("missing fan-in routes for %v", sources)
+				}
+				metrics := route.Analyze(&layout.Layout{}, incoming)
+				if metrics.Crossings != 0 || metrics.Overlaps != 0 {
+					t.Fatalf("%v fan-in crosses: %+v\n%s", sources, metrics, route.DebugString(incoming))
+				}
+			}
+		})
+	}
+}
+
 func TestFailedLayoutCandidateKeepsValidBaseline(t *testing.T) {
 	builder := diagram.NewBuilder("test")
 	ranks := []int{0, 1, 2}
@@ -185,27 +337,6 @@ func TestAnnotateProblemEdgeIncludesSourceAndSemanticRelation(t *testing.T) {
 	}
 }
 
-func TestCandidateOptionsBoundHorizontalGroupRankSearch(t *testing.T) {
-	builder := diagram.NewBuilder("test")
-	builder.SetDirection(diagram.DirectionRight)
-	builder.AddNode("member", "Member", diagram.SourceSpan{})
-	builder.AddGroup("group", []string{"member"}, "Group", "", 1, diagram.LineSolid, false, diagram.SourceSpan{})
-	problem, err := builder.Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var steps []int
-	for _, candidate := range candidateOptionsFor(problem) {
-		if candidate.rankCompactionSteps > 0 {
-			steps = append(steps, candidate.rankCompactionSteps)
-		}
-	}
-	if !reflect.DeepEqual(steps, []int{1, 2, 3}) {
-		t.Fatalf("rank compaction steps = %v, want [1 2 3]", steps)
-	}
-}
-
 func TestCandidateBudgetStopsOnlyAfterBaseline(t *testing.T) {
 	diagnostics := route.Diagnostics{AStarExpansions: maximumSolveAStarExpansions}
 	if candidateBudgetExhausted(false, diagnostics) {
@@ -222,11 +353,11 @@ func TestCandidateOptionsDoNotHaveSizeCliff(t *testing.T) {
 		id := fmt.Sprintf("node-%d", index)
 		builder.AddNode(id, id, diagram.SourceSpan{})
 	}
-	problem, err := builder.Build()
+	_, err := builder.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(candidateOptionsFor(problem)); got != 3 {
+	if got := len(candidateOptionsFor()); got != 3 {
 		t.Fatalf("large graph candidates = %d, want 3 budget-controlled candidates", got)
 	}
 }

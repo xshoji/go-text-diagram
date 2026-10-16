@@ -1,0 +1,79 @@
+@startuml
+allowmixing
+left to right direction
+
+component "Clinician Portal" as clinician
+component "Patient App" as patient
+component "Hospital EHR" as ehr
+component "Laboratory System" as lab
+component "Pharmacy System" as pharmacy
+
+package "Interoperability Layer" as interoperability {
+  component "FHIR Gateway" as fhir
+  component "HL7 Adapter" as hl7
+  component "Terminology Service" as terminology
+  component "Consent Service" as consent
+  component "Patient Matcher" as matcher
+  hl7 --> fhir : normalize
+  fhir --> terminology : validate codes
+  fhir --> consent : check purpose
+  fhir --> matcher : resolve identity
+}
+
+package "Clinical Services" as clinical {
+  component "Patient Service" as patients
+  component "Encounter Service" as encounters
+  component "Observation Service" as observations
+  component "Medication Service" as medications
+  component "Care Plan Service" as careplans
+  component "Document Service" as documents
+  fhir --> patients
+  fhir --> encounters
+  fhir --> observations
+  fhir --> medications
+  fhir --> careplans
+  fhir --> documents
+}
+
+database "Protected Health Data" as phi {
+  component "FHIR Repository" as repository
+  component "Document Store" as document_store
+  component "Consent Ledger" as consent_ledger
+  component "De-identification Store" as deidentified
+  component "Backup Vault" as backup
+  repository -[dashed]-> backup : encrypted backup
+}
+
+package "Clinical Events" as events {
+  component "Event Broker" as broker
+  component "Notification Service" as notification
+  component "Audit Service" as audit
+  component "De-identification Worker" as deidentifier
+  component "Population Health Export" as population
+  broker --> notification
+  broker --> audit
+  broker --> deidentifier
+  deidentifier --> population
+}
+
+class "FHIR Patient" as patient_resource {
+  id : identifier
+  name : HumanName
+  birthDate : date
+  managingOrganization : Reference
+}
+
+clinician --> fhir : clinical access
+patient --> fhir : patient access
+ehr --> hl7 : ADT messages
+lab --> fhir : DiagnosticReport
+pharmacy --> fhir : MedicationRequest
+patients --> patient_resource::id
+patients --> repository
+encounters --> repository
+observations --> repository
+medications --> repository
+documents --> document_store
+consent --> consent_ledger
+repository -[dashed]-> broker : resource changed
+@enduml

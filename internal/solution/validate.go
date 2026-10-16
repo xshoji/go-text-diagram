@@ -197,7 +197,7 @@ func (s *Snapshot) Validate() error {
 		if edge.LabelPlaced && (edge.LabelRect.Width <= 0 || edge.LabelRect.Height <= 0 || !rectContains(s.bounds, edge.LabelRect)) {
 			return fmt.Errorf("route %q label is outside bounds: %+v", edge.ID, edge.LabelRect)
 		}
-		if err := validateNodeInteriors(edge, nodes); err != nil {
+		if err := validateNodeOverlaps(edge, nodes); err != nil {
 			return err
 		}
 		if err := validateGroupBoundaryOverlaps(edge, groups); err != nil {
@@ -369,7 +369,7 @@ func sameEndpoint(left, right diagram.Endpoint) bool {
 	return *left.PortHint.Offset == *right.PortHint.Offset
 }
 
-func validateNodeInteriors(edge RoutedEdge, nodes map[string]Node) error {
+func validateNodeOverlaps(edge RoutedEdge, nodes map[string]Node) error {
 	for index := 1; index < len(edge.Points); index++ {
 		from, to := edge.Points[index-1], edge.Points[index]
 		dx, dy := sign(to.X-from.X), sign(to.Y-from.Y)
@@ -382,8 +382,8 @@ func validateNodeInteriors(edge RoutedEdge, nodes map[string]Node) error {
 				if node.Dummy || endpointIsNode(edge.Source, semanticID) || endpointIsNode(edge.Target, semanticID) {
 					continue
 				}
-				if geom.ContainsInterior(node.Rect, point) {
-					return fmt.Errorf("route %q crosses node %q interior", edge.ID, node.ID)
+				if geom.Contains(node.Rect, point) {
+					return fmt.Errorf("route %q crosses node %q boundary or interior", edge.ID, node.ID)
 				}
 			}
 			if point == to {

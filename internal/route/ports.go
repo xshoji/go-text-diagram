@@ -7,6 +7,8 @@ import (
 	"github.com/xshoji/go-text-diagram/internal/layout"
 )
 
+const portCornerClearance = 4
+
 func portFor(node *layout.Node, specification diagram.PortHint, incoming bool, direction diagram.Direction, index, count int) Point {
 	centerX := node.Rect.X + (node.Rect.Width-1)/2
 	centerY := node.Rect.Y + (node.Rect.Height-1)/2
@@ -18,13 +20,21 @@ func portFor(node *layout.Node, specification diagram.PortHint, incoming bool, d
 		return specifiedPort(node, specification)
 	}
 	if direction.Vertical() {
-		centerX = distributedPosition(node.Rect.X, node.Rect.Width, index, count)
+		clearance := 1
+		if !incoming {
+			clearance = automaticPortClearance(count)
+		}
+		centerX = distributedPortPosition(node.Rect.X, node.Rect.Width, index, count, clearance)
 		if incoming == (direction == diagram.DirectionDown) {
 			return Point{X: centerX, Y: node.Rect.Y}
 		}
 		return Point{X: centerX, Y: node.Rect.Y + node.Rect.Height - 1}
 	}
-	centerY = distributedPosition(node.Rect.Y, node.Rect.Height, index, count)
+	clearance := 1
+	if !incoming {
+		clearance = automaticPortClearance(count)
+	}
+	centerY = distributedPortPosition(node.Rect.Y, node.Rect.Height, index, count, clearance)
 	if incoming == (direction == diagram.DirectionRight) {
 		return Point{X: node.Rect.X, Y: centerY}
 	}
@@ -57,14 +67,25 @@ func specifiedPort(node *layout.Node, specification diagram.PortHint) Point {
 }
 
 func distributedPosition(start, size, index, count int) int {
-	available := size - 2
+	return distributedPortPosition(start, size, index, count, 1)
+}
+
+func automaticPortClearance(count int) int {
+	if count == 2 {
+		return 1
+	}
+	return portCornerClearance
+}
+
+func distributedPortPosition(start, size, index, count, clearance int) int {
+	available := size - 2*clearance
 	if available <= 1 || count <= 1 {
 		return start + (size-1)/2
 	}
 	if count <= available {
-		return start + 1 + index*(available-1)/(count-1)
+		return start + clearance + index*(available-1)/(count-1)
 	}
-	return start + 1 + index%available
+	return start + clearance + index%available
 }
 
 func assignPorts(edges []*layout.Edge, nodes map[string]*layout.Node, direction diagram.Direction) (map[*layout.Edge]Point, map[*layout.Edge]Point) {
@@ -90,8 +111,13 @@ func assignPorts(edges []*layout.Edge, nodes map[string]*layout.Node, direction 
 		}
 	}
 	for nodeID, group := range incoming {
+		useOriginalSource := incomingPortsUseOriginalSource(group, nodes)
 		sort.SliceStable(group, func(i, j int) bool {
-			left, right := nodes[group[i].From], nodes[group[j].From]
+			leftFrom, rightFrom := group[i].From, group[j].From
+			if useOriginalSource {
+				leftFrom, rightFrom = group[i].OriginalFrom, group[j].OriginalFrom
+			}
+			left, right := nodes[leftFrom], nodes[rightFrom]
 			leftPosition, rightPosition := crossCenter(left, direction), crossCenter(right, direction)
 			if leftPosition != rightPosition {
 				return leftPosition < rightPosition
@@ -105,6 +131,31 @@ func assignPorts(edges []*layout.Edge, nodes map[string]*layout.Node, direction 
 	return starts, ends
 }
 
+func incomingPortsUseOriginalSource(edges []*layout.Edge, nodes map[string]*layout.Node) bool {
+	if len(edges) < 2 {
+		return false
+	}
+	sources := make(map[string]bool, len(edges))
+	for _, edge := range edges {
+		source := nodes[edge.OriginalFrom]
+		target := nodes[edge.To]
+		if source == nil || source.Dummy || target == nil || target.Dummy ||
+			edge.OriginalFrom == "" || edge.OriginalTo != edge.To ||
+			!automaticNodeEndpoint(edge.Source, edge.Start) ||
+			!automaticNodeEndpoint(edge.Target, edge.End) || sources[edge.OriginalFrom] {
+			return false
+		}
+		sources[edge.OriginalFrom] = true
+	}
+	return true
+}
+
+func automaticNodeEndpoint(endpoint diagram.Endpoint, port diagram.PortHint) bool {
+	return endpoint.Kind == diagram.EndpointNode && endpoint.Cell == "" && endpoint.NamedPort == "" &&
+		endpoint.PortHint.Side == diagram.SideAuto && endpoint.PortHint.Offset == nil &&
+		port.Side == diagram.SideAuto && port.Offset == nil
+}
+
 func endpointPort(node *layout.Node, endpoint diagram.Endpoint, specification diagram.PortHint, incoming bool, direction diagram.Direction, index, count int) Point {
 	cell, ok := node.CellRect(endpoint.Cell)
 	if !ok {
@@ -112,16 +163,20 @@ func endpointPort(node *layout.Node, endpoint diagram.Endpoint, specification di
 	}
 	preferred := resolvedSide(specification.Side, incoming, direction)
 	side := closestExposedCellSide(node.Rect, cell, preferred)
+	return cellPort(node.Rect, cell, side)
+}
+
+func cellPort(node, cell layout.Rect, side diagram.Side) Point {
 	x, y := cell.X+(cell.Width-1)/2, cell.Y
 	switch side {
 	case diagram.SideNorth:
-		return Point{X: x, Y: node.Rect.Y}
+		return Point{X: x, Y: node.Y}
 	case diagram.SideEast:
-		return Point{X: node.Rect.X + node.Rect.Width - 1, Y: y}
+		return Point{X: node.X + node.Width - 1, Y: y}
 	case diagram.SideSouth:
-		return Point{X: x, Y: node.Rect.Y + node.Rect.Height - 1}
+		return Point{X: x, Y: node.Y + node.Height - 1}
 	default:
-		return Point{X: node.Rect.X, Y: y}
+		return Point{X: node.X, Y: y}
 	}
 }
 

@@ -1,6 +1,12 @@
 package layout
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/xshoji/go-text-diagram/internal/diagram"
+)
+
+const maximumProximityWork int64 = 10_000_000
 
 type barycenter struct {
 	sum   int
@@ -24,6 +30,89 @@ func reduceCrossings(layers [][]*workingNode, edges []*workingEdge, rounds int) 
 	}
 	restoreOrders(layers, best)
 	return bestCrossings, rounds
+}
+
+func improveLayerProximity(layers [][]*workingNode, edges []*workingEdge, groups []diagram.Group, direction diagram.Direction, options Options) int {
+	grouped := make(map[*workingNode]bool)
+	byID := make(map[string]*workingNode)
+	connected := make(map[*workingNode]bool)
+	nodeCount := 0
+	for _, layer := range layers {
+		nodeCount += len(layer)
+		for _, node := range layer {
+			byID[node.id] = node
+		}
+	}
+	for _, group := range groups {
+		for _, member := range group.Members {
+			grouped[byID[member]] = true
+		}
+	}
+	for _, edge := range edges {
+		if edge.lineStyle != diagram.LineInvisible {
+			connected[edge.from], connected[edge.to] = true, true
+		}
+	}
+
+	distance := layerEdgeDistance(layers, edges, direction, options)
+	workPerSwap := int64(nodeCount+len(edges)) + int64(len(edges))*int64(len(edges))
+	evaluationLimit := int(maximumProximityWork / max(workPerSwap, 1))
+	evaluationLimit = min(evaluationLimit, 4096)
+	evaluations := 0
+	for sweep := 0; sweep < 2; sweep++ {
+		for rank, layer := range layers {
+			for step := 0; step+1 < len(layer); step++ {
+				index := step
+				if sweep == 1 {
+					index = len(layer) - step - 2
+				}
+				left, right := layer[index], layer[index+1]
+				if left.dummy || right.dummy || grouped[left] || grouped[right] || !connected[left] && !connected[right] {
+					continue
+				}
+				if evaluations >= evaluationLimit {
+					return countCrossings(layers, edges)
+				}
+				evaluations++
+
+				beforeCrossings := adjacentCrossings(rank, layers, edges)
+				layer[index], layer[index+1] = right, left
+				updateOrders(layer)
+				nextDistance := layerEdgeDistance(layers, edges, direction, options)
+				nextCrossings := adjacentCrossings(rank, layers, edges)
+				if nextCrossings > beforeCrossings || nextCrossings == beforeCrossings && nextDistance >= distance {
+					layer[index], layer[index+1] = left, right
+					updateOrders(layer)
+					continue
+				}
+				distance = nextDistance
+			}
+		}
+	}
+	return countCrossings(layers, edges)
+}
+
+func layerEdgeDistance(layers [][]*workingNode, edges []*workingEdge, direction diagram.Direction, options Options) int64 {
+	rects, _, _ := assignCoordinates(layers, direction, options)
+	center := func(node *workingNode) int {
+		rect := rects[node]
+		if direction.Vertical() {
+			return rect.X + rect.Width/2
+		}
+		return rect.Y + rect.Height/2
+	}
+	distance := int64(0)
+	for _, edge := range edges {
+		if edge.lineStyle == diagram.LineInvisible {
+			continue
+		}
+		delta := center(edge.from) - center(edge.to)
+		if delta < 0 {
+			delta = -delta
+		}
+		distance += int64(delta)
+	}
+	return distance
 }
 
 func reorderLayer(layer []*workingNode, edges []*workingEdge, adjacentRank int, useIncoming, useMedian bool) {

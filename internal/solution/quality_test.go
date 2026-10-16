@@ -192,6 +192,14 @@ func TestIncrementalQualityMetricContributions(t *testing.T) {
 	}
 }
 
+func TestFullQualityCountsNodeBoundaryCollision(t *testing.T) {
+	snapshot := syntheticQualitySnapshot(1)
+	snapshot.nodes = []Node{{ID: "obstacle", Rect: geom.Rect{X: 10, Y: 0, Width: 5, Height: 1}}}
+	if got := FullQuality(snapshot).Metrics.EdgeNodeCollisions; got != 1 {
+		t.Fatalf("boundary collisions = %d, want 1", got)
+	}
+}
+
 func TestIncrementalQualityMatchesFullForDeterministicRandomChanges(t *testing.T) {
 	random := rand.New(rand.NewSource(42))
 	snapshot := syntheticQualitySnapshot(12)

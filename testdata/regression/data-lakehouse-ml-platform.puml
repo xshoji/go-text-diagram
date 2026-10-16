@@ -1,0 +1,82 @@
+@startuml
+left to right direction
+
+package "Data Sources" as sources {
+  component "Operational PostgreSQL" as postgres
+  component "SaaS APIs" as saas
+  component "Application Events" as app_events
+  component "IoT Telemetry" as telemetry
+  component "Partner SFTP" as sftp
+}
+
+package "Ingestion" as ingestion {
+  component "CDC Connectors" as cdc
+  component "API Extractors" as extractors
+  component "Streaming Gateway" as stream_gateway
+  component "File Ingestor" as file_ingestor
+  component "Schema Registry" as schema_registry
+  postgres --> cdc
+  saas --> extractors
+  app_events --> stream_gateway
+  telemetry --> stream_gateway
+  sftp --> file_ingestor
+  stream_gateway --> schema_registry
+}
+
+package "Lakehouse" as lakehouse {
+  component "Raw Object Storage" as raw
+  component "Table Format Catalog" as catalog
+  component "Curated Tables" as curated
+  component "SQL Warehouse" as warehouse
+  component "Metadata Catalog" as metadata
+  cdc --> raw
+  extractors --> raw
+  stream_gateway --> raw
+  file_ingestor --> raw
+  raw --> curated : transform
+  catalog --> curated : table metadata
+  curated --> warehouse
+  curated --> metadata : lineage
+}
+
+package "Processing" as processing {
+  component "Stream Processor" as stream_processor
+  component "Batch Orchestrator" as orchestrator
+  component "Spark Workers" as spark
+  component "Data Quality Service" as quality
+  component "Lineage Collector" as lineage
+  stream_gateway --> stream_processor
+  orchestrator --> spark
+  spark --> raw
+  spark --> curated
+  spark --> quality
+  spark -[dotted]-> lineage
+  lineage --> metadata
+}
+
+package "Machine Learning" as ml {
+  component "Feature Store" as features
+  component "Notebook Workspace" as notebooks
+  component "Training Jobs" as training
+  component "Model Registry" as models
+  component "Online Inference" as inference
+  component "Model Monitor" as monitor
+  curated --> features
+  notebooks --> training
+  training --> features
+  training --> models
+  models --> inference
+  inference --> monitor
+}
+
+package "Consumption" as consumption {
+  component "BI Dashboards" as bi
+  component "Reverse ETL" as reverse_etl
+  component "Data Sharing" as sharing
+  component "Recommendation API" as recommendation
+  warehouse --> bi
+  curated --> reverse_etl
+  curated --> sharing
+  recommendation --> inference
+}
+@enduml
